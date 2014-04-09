@@ -1,0 +1,215 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Sat Feb 22 00:10:12 2014 -0500
+
+    enable use of Hisense's 4.2.1 audio blobs (copied from CM11)
+
+diff --git a/include/media/nbaio/AudioStreamOutSink.h b/include/media/nbaio/AudioStreamOutSink.h
+index 7948d40..3bae87c 100644
+--- a/include/media/nbaio/AudioStreamOutSink.h
++++ b/include/media/nbaio/AudioStreamOutSink.h
+@@ -52,7 +52,10 @@ public:
+     // implementation of GNWT (if any)
+     virtual status_t getNextWriteTimestamp(int64_t *timestamp);
+ 
++// DoPa (2014/02/22) - from CM11
++#ifndef HAVE_PRE_KITKAT_AUDIO_BLOB
+     virtual status_t getTimestamp(AudioTimestamp& timestamp);
++#endif
+ 
+     // NBAIO_Sink end
+ 
+diff --git a/media/libnbaio/Android.mk b/media/libnbaio/Android.mk
+index 69c75b8..7aeaf96 100644
+--- a/media/libnbaio/Android.mk
++++ b/media/libnbaio/Android.mk
+@@ -36,4 +36,7 @@ LOCAL_SHARED_LIBRARIES := \
+ # This dependency on libmedia is for SingleStateQueueInstantiations.
+ # Consider a separate a library for SingleStateQueueInstantiations.
+ 
++# DoPa (2014/02/22) - from CM11
++LOCAL_CFLAGS += -DHAVE_PRE_KITKAT_AUDIO_BLOB
++
+ include $(BUILD_SHARED_LIBRARY)
+diff --git a/media/libnbaio/AudioStreamOutSink.cpp b/media/libnbaio/AudioStreamOutSink.cpp
+index e4341d7..98d0376 100644
+--- a/media/libnbaio/AudioStreamOutSink.cpp
++++ b/media/libnbaio/AudioStreamOutSink.cpp
+@@ -79,6 +79,8 @@ status_t AudioStreamOutSink::getNextWriteTimestamp(int64_t *timestamp) {
+     return mStream->get_next_write_timestamp(mStream, timestamp);
+ }
+ 
++// DoPa (2014/02/22) - from CM11
++#ifndef HAVE_PRE_KITKAT_AUDIO_BLOB
+ status_t AudioStreamOutSink::getTimestamp(AudioTimestamp& timestamp)
+ {
+     if (mStream->get_presentation_position == NULL) {
+@@ -93,5 +95,6 @@ status_t AudioStreamOutSink::getTimestamp(AudioTimestamp& timestamp)
+     timestamp.mPosition = position64;
+     return OK;
+ }
++#endif
+ 
+ }   // namespace android
+diff --git a/services/audioflinger/Android.mk b/services/audioflinger/Android.mk
+index 54377f1..4f3b1ee 100644
+--- a/services/audioflinger/Android.mk
++++ b/services/audioflinger/Android.mk
+@@ -64,6 +64,9 @@ else
+     LOCAL_CFLAGS += -DANDROID_SMP=0
+ endif
+ 
++# DoPa (2014/02/22) - from CM11
++LOCAL_CFLAGS += -DHAVE_PRE_KITKAT_AUDIO_BLOB
++
+ LOCAL_CFLAGS += -fvisibility=hidden
+ 
+ include $(BUILD_SHARED_LIBRARY)
+diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
+index 3132e54..83dd911 100644
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -1440,6 +1440,21 @@ status_t AudioFlinger::setLowRamDevice(bool isLowRamDevice)
+ 
+ // ----------------------------------------------------------------------------
+ 
++// DoPa (2014/02/22) - from CM11
++#ifdef HAVE_PRE_KITKAT_AUDIO_BLOB
++audio_io_handle_t AudioFlinger::openOutput(audio_module_handle_t module,
++                                           audio_devices_t *pDevices,
++                                           uint32_t *pSamplingRate,
++                                           audio_format_t *pFormat,
++                                           audio_channel_mask_t *pChannelMask,
++                                           uint32_t *pLatencyMs,
++                                           audio_output_flags_t flags)
++{
++    return openOutput(module, pDevices, pSamplingRate, pFormat, pChannelMask,
++            pLatencyMs, flags, NULL);
++}
++#endif
++
+ audio_io_handle_t AudioFlinger::openOutput(audio_module_handle_t module,
+                                            audio_devices_t *pDevices,
+                                            uint32_t *pSamplingRate,
+@@ -1454,9 +1469,11 @@ audio_io_handle_t AudioFlinger::openOutput(audio_module_handle_t module,
+     config.sample_rate = (pSamplingRate != NULL) ? *pSamplingRate : 0;
+     config.channel_mask = (pChannelMask != NULL) ? *pChannelMask : 0;
+     config.format = (pFormat != NULL) ? *pFormat : AUDIO_FORMAT_DEFAULT;
++#ifndef HAVE_PRE_KITKAT_AUDIO_BLOB
+     if (offloadInfo) {
+         config.offload_info = *offloadInfo;
+     }
++#endif
+ 
+     audio_stream_out_t *outStream = NULL;
+     AudioHwDevice *outHwDev;
+@@ -1468,8 +1485,10 @@ audio_io_handle_t AudioFlinger::openOutput(audio_module_handle_t module,
+               config.format,
+               config.channel_mask,
+               flags);
++#ifndef HAVE_PRE_KITKAT_AUDIO_BLOB
+     ALOGV("openOutput(), offloadInfo %p version 0x%04x",
+           offloadInfo, offloadInfo == NULL ? -1 : offloadInfo->version );
++#endif
+ 
+     if (pDevices == NULL || *pDevices == 0) {
+         return 0;
+diff --git a/services/audioflinger/AudioFlinger.h b/services/audioflinger/AudioFlinger.h
+index 53e238e..9389ba8 100644
+--- a/services/audioflinger/AudioFlinger.h
++++ b/services/audioflinger/AudioFlinger.h
+@@ -156,6 +156,17 @@ public:
+     virtual     size_t      getInputBufferSize(uint32_t sampleRate, audio_format_t format,
+                                                audio_channel_mask_t channelMask) const;
+ 
++// DoPa (2014/02/22) - from CM11
++#ifdef HAVE_PRE_KITKAT_AUDIO_BLOB
++    virtual audio_io_handle_t openOutput(audio_module_handle_t module,
++                                         audio_devices_t *pDevices,
++                                         uint32_t *pSamplingRate,
++                                         audio_format_t *pFormat,
++                                         audio_channel_mask_t *pChannelMask,
++                                         uint32_t *pLatencyMs,
++                                         audio_output_flags_t flags);
++#endif
++
+     virtual audio_io_handle_t openOutput(audio_module_handle_t module,
+                                          audio_devices_t *pDevices,
+                                          uint32_t *pSamplingRate,
+diff --git a/services/audioflinger/AudioPolicyService.cpp b/services/audioflinger/AudioPolicyService.cpp
+index 35e816b..42d127e 100644
+--- a/services/audioflinger/AudioPolicyService.cpp
++++ b/services/audioflinger/AudioPolicyService.cpp
+@@ -515,11 +515,16 @@ bool AudioPolicyService::isStreamActive(audio_stream_type_t stream, uint32_t inP
+ 
+ bool AudioPolicyService::isStreamActiveRemotely(audio_stream_type_t stream, uint32_t inPastMs) const
+ {
++// DoPa (2014/03/04) - after CM11
++#ifdef HAVE_PRE_KITKAT_AUDIO_BLOB
++    return 0;
++#else
+     if (mpAudioPolicy == NULL) {
+         return 0;
+     }
+     Mutex::Autolock _l(mLock);
+     return mpAudioPolicy->is_stream_active_remotely(mpAudioPolicy, stream, inPastMs);
++#endif
+ }
+ 
+ bool AudioPolicyService::isSourceActive(audio_source_t source) const
+@@ -1020,10 +1025,20 @@ void AudioPolicyService::AudioCommandThread::insertCommand_l(AudioCommand *comma
+             } else {
+                 data2->mKeyValuePairs = param2.toString();
+             }
++// DoPa (20140304) - after CM11
++#if 0
+             command->mTime = command2->mTime;
+             // force delayMs to non 0 so that code below does not request to wait for
+             // command status as the command is now delayed
+             delayMs = 1;
++#else
++            if (!data2->mKeyValuePairs.compare(data->mKeyValuePairs)){
++                command->mTime = command2->mTime;
++                // force delayMs to non 0 so that code below does not request to wait for
++                // command status as the command is now delayed
++                delayMs = 1;
++            }
++#endif
+         } break;
+ 
+         case SET_VOLUME: {
+@@ -1137,6 +1152,11 @@ int AudioPolicyService::setVoiceVolume(float volume, int delayMs)
+ 
+ bool AudioPolicyService::isOffloadSupported(const audio_offload_info_t& info)
+ {
++
++// DoPa (2014/02/22) - from CM11
++#ifdef HAVE_PRE_KITKAT_AUDIO_BLOB
++    return false;
++#else
+     if (mpAudioPolicy == NULL) {
+         ALOGV("mpAudioPolicy == NULL");
+         return false;
+@@ -1148,6 +1168,7 @@ bool AudioPolicyService::isOffloadSupported(const audio_offload_info_t& info)
+     }
+ 
+     return mpAudioPolicy->is_offload_supported(mpAudioPolicy, &info);
++#endif
+ }
+ 
+ // ----------------------------------------------------------------------------
+@@ -1490,8 +1511,15 @@ static audio_io_handle_t aps_open_output_on_module(void *service,
+         ALOGW("%s: could not get AudioFlinger", __func__);
+         return 0;
+     }
++
++// DoPa (2014/02/22) - not in CM11
++#ifdef HAVE_PRE_KITKAT_AUDIO_BLOB
++    return af->openOutput(module, pDevices, pSamplingRate, pFormat, pChannelMask,
++                          pLatencyMs, flags, NULL);
++#else
+     return af->openOutput(module, pDevices, pSamplingRate, pFormat, pChannelMask,
+                           pLatencyMs, flags, offloadInfo);
++#endif
+ }
+ 
+ static audio_io_handle_t aps_open_dup_output(void *service,

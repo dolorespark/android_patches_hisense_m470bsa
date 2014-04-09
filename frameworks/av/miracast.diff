@@ -1,0 +1,40 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Wed Mar 26 23:00:00 2014 -0400
+
+    enable WiFi Display (Miracast)
+
+diff --git a/media/libstagefright/ACodec.cpp b/media/libstagefright/ACodec.cpp
+index 5d5220f..6dd9990 100644
+--- a/media/libstagefright/ACodec.cpp
++++ b/media/libstagefright/ACodec.cpp
+@@ -2172,9 +2172,9 @@ status_t ACodec::setupAVCEncoderParameters(const sp<AMessage> &msg) {
+     if (msg->findInt32("intra-refresh-mode", &intraRefreshMode)) {
+         err = setCyclicIntraMacroblockRefresh(msg, intraRefreshMode);
+         if (err != OK) {
+-            ALOGE("Setting intra macroblock refresh mode (%d) failed: 0x%x",
+-                    err, intraRefreshMode);
+-            return err;
++            /* DoPa (20140326) - after kensuke/How-to-Miracast-on-AOSP patch */
++            ALOGE("Ignoring error setting intra macroblock refresh mode (0x%x) - error: 0x%x",
++                   intraRefreshMode, err);
+         }
+     }
+ 
+diff --git a/media/libstagefright/wifi-display/source/WifiDisplaySource.cpp b/media/libstagefright/wifi-display/source/WifiDisplaySource.cpp
+index 05e4018..cf173ad 100644
+--- a/media/libstagefright/wifi-display/source/WifiDisplaySource.cpp
++++ b/media/libstagefright/wifi-display/source/WifiDisplaySource.cpp
+@@ -931,7 +931,12 @@ status_t WifiDisplaySource::onReceiveM3Response(
+     }
+ 
+     mUsingHDCP = false;
+-    if (!params->findParameter("wfd_content_protection", &value)) {
++    /* DoPa (20140326) - from CM11:  toggle to disable HDCP checks */
++    char val[PROPERTY_VALUE_MAX];
++    if (property_get("persist.sys.wfd.nohdcp", val, NULL)
++            && !strcmp("1", val)) {
++        ALOGI("Content protection has been disabled for WFD sinks");
++    } else if (!params->findParameter("wfd_content_protection", &value)) {
+         ALOGI("Sink doesn't appear to support content protection.");
+     } else if (value == "none") {
+         ALOGI("Sink does not support content protection.");

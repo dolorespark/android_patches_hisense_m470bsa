@@ -1,0 +1,33 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Wed Feb 26 10:55:40 2014 -0500
+
+    emulate a method whose signature changed after Android 4.2.1
+
+diff --git a/include/gui/SurfaceControl.h b/include/gui/SurfaceControl.h
+index f27754c..efab2fd 100644
+--- a/include/gui/SurfaceControl.h
++++ b/include/gui/SurfaceControl.h
+@@ -59,6 +59,8 @@ public:
+     status_t    setLayerStack(int32_t layerStack);
+     status_t    setLayer(int32_t layer);
+     status_t    setPosition(float x, float y);
++    // DoPa (20140226) - kludge to create a needed symbol - similar to CM11
++    status_t    setPosition(int32_t, int32_t y);
+     status_t    setSize(uint32_t w, uint32_t h);
+     status_t    hide();
+     status_t    show();
+diff --git a/libs/gui/SurfaceControl.cpp b/libs/gui/SurfaceControl.cpp
+index 16e533c..f2c5034 100644
+--- a/libs/gui/SurfaceControl.cpp
++++ b/libs/gui/SurfaceControl.cpp
+@@ -108,6 +108,10 @@ status_t SurfaceControl::setPosition(float x, float y) {
+     const sp<SurfaceComposerClient>& client(mClient);
+     return client->setPosition(mHandle, x, y);
+ }
++// DoPa (20140226) - kludge to create a needed symbol - similar to CM11
++status_t SurfaceControl::setPosition(int32_t x, int32_t y) {
++    return setPosition((float)x, (float)y);
++}
+ status_t SurfaceControl::setSize(uint32_t w, uint32_t h) {
+     status_t err = validate();
+     if (err < 0) return err;

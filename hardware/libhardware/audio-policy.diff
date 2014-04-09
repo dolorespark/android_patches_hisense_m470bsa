@@ -1,0 +1,35 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Tue Apr 01 23:03:57 2014 -0500
+
+    rearrange audio_policy structure to maintain compatibility with m470 blobs
+
+diff --git a/include/hardware/audio_policy.h b/include/hardware/audio_policy.h
+index 4e75e02..f789b7a 100644
+--- a/include/hardware/audio_policy.h
++++ b/include/hardware/audio_policy.h
+@@ -233,10 +233,6 @@ struct audio_policy {
+             audio_stream_type_t stream,
+             uint32_t in_past_ms);
+ 
+-    bool (*is_stream_active_remotely)(const struct audio_policy *pol,
+-            audio_stream_type_t stream,
+-            uint32_t in_past_ms);
+-
+     bool (*is_source_active)(const struct audio_policy *pol,
+             audio_source_t source);
+ 
+@@ -246,6 +242,14 @@ struct audio_policy {
+     /* check if offload is possible for given sample rate, bitrate, duration, ... */
+     bool (*is_offload_supported)(const struct audio_policy *pol,
+                                 const audio_offload_info_t *info);
++
++/* DoPa (20140401) - this method was added after 4.2.1 and isn't in the m470's
++                     'audio_policy.tegra.so' - move it to the end of the struct from
++                     its AOSP position after 'is_stream_active' to maintain compatibility
++*/
++    bool (*is_stream_active_remotely)(const struct audio_policy *pol,
++            audio_stream_type_t stream,
++            uint32_t in_past_ms);
+ };
+ 
+ /* audio hw module handle used by load_hw_module(), open_output_on_module()

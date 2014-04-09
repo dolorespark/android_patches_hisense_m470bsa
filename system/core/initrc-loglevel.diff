@@ -1,0 +1,18 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Wed Mar 12 23:00:00 2014 -0500
+
+    add more detail to dmesg log for init operations
+
+diff --git a/rootdir/init.rc b/rootdir/init.rc
+index a0a9813..66f1379 100644
+--- a/rootdir/init.rc
++++ b/rootdir/init.rc
+@@ -26,7 +26,7 @@ on init
+ 
+ sysclktz 0
+ 
+-loglevel 3
++loglevel 6
+ 
+ # Backward compatibility
+     symlink /system/etc /etc

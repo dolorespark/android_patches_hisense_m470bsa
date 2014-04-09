@@ -1,0 +1,39 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Mon Mar 10 22:17:44 2014 -0500
+
+    emulate methods whose signatures changed after Android 4.2.1
+
+diff --git a/libs/binder/IPCThreadState.cpp b/libs/binder/IPCThreadState.cpp
+index 5951a3f..35323e4 100644
+--- a/libs/binder/IPCThreadState.cpp
++++ b/libs/binder/IPCThreadState.cpp
+@@ -372,6 +372,14 @@ int IPCThreadState::getCallingUid() const
+     return mCallingUid;
+ }
+ 
++// DoPa (20140310) - from/after CM11 - needed to load libnvcpud.so
++extern "C" int _ZN7android14IPCThreadState13getCallingPidEv(IPCThreadState *state) {
++    return state->getCallingPid();
++}
++extern "C" int _ZN7android14IPCThreadState13getCallingUidEv(IPCThreadState *state) {
++    return state->getCallingUid();
++}
++
+ int64_t IPCThreadState::clearCallingIdentity()
+ {
+     int64_t token = ((int64_t)mCallingUid<<32) | mCallingPid;
+diff --git a/libs/binder/MemoryBase.cpp b/libs/binder/MemoryBase.cpp
+index 033066b..2c594bb 100644
+--- a/libs/binder/MemoryBase.cpp
++++ b/libs/binder/MemoryBase.cpp
+@@ -44,3 +44,10 @@ MemoryBase::~MemoryBase()
+ 
+ // ---------------------------------------------------------------------------
+ }; // namespace android
++
++// DoPa (20140310) - from CM11 - needed to load libnvcap.so
++extern "C" void _ZN7android10MemoryBaseC1ERKNS_2spINS_11IMemoryHeapEEEij(void*, void*, ssize_t, size_t);
++extern "C" void _ZN7android10MemoryBaseC1ERKNS_2spINS_11IMemoryHeapEEElj(void* obj, void* h, long o, unsigned int size) {
++    _ZN7android10MemoryBaseC1ERKNS_2spINS_11IMemoryHeapEEEij(obj, h, o, size);
++}
++

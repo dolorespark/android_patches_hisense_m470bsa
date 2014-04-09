@@ -1,0 +1,25 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Wed Mar 12 23:13:07 2014 -0500
+
+    prevent full bootup when attaching AC adapter
+
+diff --git a/init/init.c b/init/init.c
+index 94a2011..5b25b62 100644
+--- a/init/init.c
++++ b/init/init.c
+@@ -713,6 +713,15 @@ static void import_kernel_nv(char *name, int for_emulator)
+         cnt = snprintf(prop, sizeof(prop), "ro.boot.%s", boot_prop_name);
+         if (cnt < PROP_NAME_MAX)
+             property_set(prop, value);
++
++    /* DoPa (20140312) - the Hisense bootloader fails to use 'androidboot.mode=charger'
++     * to indicate that the tablet is booting solely to show the battery animations;
++     * this workaround looks for a particular value of 'power_reason' that corresponds
++     * to that state (Hisense appears to have done something similar in their version
++     * of 'init').
++     */
++    } else if (!strcmp(name, "power_reason") && !strcmp(value, "0x808800")) {
++        property_set("ro.boot.mode", "charger");
+     }
+ }
+ 
