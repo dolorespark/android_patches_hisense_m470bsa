@@ -1,0 +1,18 @@
+Author: DoloresPark <dolorespark@e-vertise.com>
+Date:   Mon Apr 21 22:09:51 2014 -0500
+
+    minor bug fix affecting GPS (taken from CM11)
+
+diff --git a/location/java/android/location/LocationRequest.java b/location/java/android/location/LocationRequest.java
+index c9162fe..89a5bc2 100644
+--- a/location/java/android/location/LocationRequest.java
++++ b/location/java/android/location/LocationRequest.java
+@@ -208,6 +208,8 @@ public final class LocationRequest implements Parcelable {
+                 switch (criteria.getPowerRequirement()) {
+                     case Criteria.POWER_HIGH:
+                         quality = POWER_HIGH;
++                        /* DoPa (20140421) - add missing break statement (from CM11) */
++                        break;
+                     default:
+                         quality = POWER_LOW;
+                 }
