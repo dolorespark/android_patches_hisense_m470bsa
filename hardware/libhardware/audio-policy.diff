@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Tue Apr 01 23:03:57 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Tue Apr 01 23:03:57 2014 -0500
 
-    rearrange audio_policy structure to maintain compatibility with m470 blobs
+Subject: rearrange audio_policy structure to maintain compatibility with m470 blobs
 
 diff --git a/include/hardware/audio_policy.h b/include/hardware/audio_policy.h
 index 4e75e02..f789b7a 100644

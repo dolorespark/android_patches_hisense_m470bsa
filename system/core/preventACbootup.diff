@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Wed Mar 12 23:13:07 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed Mar 12 23:13:07 2014 -0500
 
-    prevent full bootup when attaching AC adapter
+Subject: prevent full bootup when attaching AC adapter
 
 diff --git a/init/init.c b/init/init.c
 index 94a2011..5b25b62 100644

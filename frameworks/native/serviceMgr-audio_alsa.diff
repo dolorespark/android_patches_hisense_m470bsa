@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Sat Apr 05 00:52:05 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Sat Apr 05 00:52:05 2014 -0500
 
-    enable the 'media.nvidia.audio_alsa' service to be started
+Subject: enable the 'media.nvidia.audio_alsa' service to be started
 
 diff --git a/cmds/servicemanager/service_manager.c b/cmds/servicemanager/service_manager.c
 index 3eaf1eb..701412d 100644

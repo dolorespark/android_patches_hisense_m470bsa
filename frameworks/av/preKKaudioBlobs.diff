@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Sat Feb 22 00:10:12 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Sat Feb 22 00:10:12 2014 -0500
 
-    enable use of Hisense's 4.2.1 audio blobs (copied from CM11)
+Subject: enable use of Hisense's 4.2.1 audio blobs (copied from CM11)
 
 diff --git a/include/media/nbaio/AudioStreamOutSink.h b/include/media/nbaio/AudioStreamOutSink.h
 index 7948d40..3bae87c 100644

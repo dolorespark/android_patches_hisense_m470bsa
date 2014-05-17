@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Mon Apr 21 22:09:51 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon Apr 21 22:09:51 2014 -0500
 
-    minor bug fix affecting GPS (taken from CM11)
+Subject: minor bug fix affecting GPS (taken from CM11)
 
 diff --git a/location/java/android/location/LocationRequest.java b/location/java/android/location/LocationRequest.java
 index c9162fe..89a5bc2 100644

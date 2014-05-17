@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Fri Feb 28 22:34:23 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Fri Feb 28 22:34:23 2014 -0500
 
-    fix crash that causes A2DP and HDMI audio to fail
+Subject: fix crash that causes A2DP and HDMI audio to fail
 
 diff --git a/media/libmediaplayerservice/MediaPlayerService.cpp b/media/libmediaplayerservice/MediaPlayerService.cpp
 index cd052e6..4d94314 100644

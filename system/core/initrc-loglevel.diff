@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Wed Mar 12 23:00:00 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed Mar 12 23:00:00 2014 -0500
 
-    add more detail to dmesg log for init operations
+Subject: add more detail to dmesg log for init operations
 
 diff --git a/rootdir/init.rc b/rootdir/init.rc
 index a0a9813..66f1379 100644

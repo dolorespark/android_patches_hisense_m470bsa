@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Wed Feb 26 10:55:40 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed Feb 26 10:55:40 2014 -0500
 
-    emulate a method whose signature changed after Android 4.2.1
+Subject: emulate a method whose signature changed after Android 4.2.1
 
 diff --git a/include/gui/SurfaceControl.h b/include/gui/SurfaceControl.h
 index f27754c..efab2fd 100644

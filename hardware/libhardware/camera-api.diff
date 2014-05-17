@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Tue Feb 25 22:21:00 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Tue Feb 25 22:21:00 2014 -0500
 
-    revert camera api version to its Android 4.2.1 value
+Subject: revert camera api version to its Android 4.2.1 value
 
 diff --git a/include/hardware/camera_common.h b/include/hardware/camera_common.h
 index 3a1233f..5afd8d2 100644

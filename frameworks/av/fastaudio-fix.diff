@@ -1,10 +1,10 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Wed Feb 26 22:13:30 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed Feb 26 22:13:30 2014 -0500
 
-    fix fast audio
+Subject: fix fast audio
     
-    add missing symbols that prevent libnvasfparserhal.so and
-    libnvaviparserhal.so from loading
+add missing symbols that prevent libnvasfparserhal.so and
+libnvaviparserhal.so from loading
 
 diff --git a/include/media/stagefright/MediaDefs.h b/include/media/stagefright/MediaDefs.h
 index 85693d4..fcbca98 100644

@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Thu Feb 20 14:19:55 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Thu Feb 20 14:19:55 2014 -0500
 
-    restore reservedVectorImpl methods needed by Hisense blobs
+Subject: restore reservedVectorImpl methods needed by Hisense blobs
 
 diff --git a/include/utils/VectorImpl.h b/include/utils/VectorImpl.h
 index 21ad71c..82e7a03 100644

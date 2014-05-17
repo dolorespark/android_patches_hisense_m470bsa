@@ -1,7 +1,7 @@
-Author: DoloresPark <dolorespark@e-vertise.com>
-Date:   Mon Mar 10 22:17:44 2014 -0500
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon Mar 10 22:17:44 2014 -0500
 
-    emulate methods whose signatures changed after Android 4.2.1
+Subject: emulate methods whose signatures changed after Android 4.2.1
 
 diff --git a/libs/binder/IPCThreadState.cpp b/libs/binder/IPCThreadState.cpp
 index 5951a3f..35323e4 100644
