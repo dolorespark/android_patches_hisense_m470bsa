@@ -1,8 +1,8 @@
 diff --git a/core/Makefile b/core/Makefile
-index 471dcb4..46a37ac 100644
+index bd2f9a0..149940c 100644
 --- a/core/Makefile
 +++ b/core/Makefile
-@@ -1290,6 +1290,8 @@ ifneq ($(recovery_fstab),)
+@@ -1295,6 +1295,8 @@ ifneq ($(recovery_fstab),)
  
  # -----------------------------------------------------------------
  # OTA update package
@@ -11,7 +11,7 @@ index 471dcb4..46a37ac 100644
  
  name := $(TARGET_PRODUCT)
  ifeq ($(TARGET_BUILD_TYPE),debug)
-@@ -1307,6 +1309,7 @@ $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) $(DISTTOOLS)
+@@ -1312,6 +1314,7 @@ $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) $(DISTTOOLS)
  	   ./build/tools/releasetools/ota_from_target_files -v \
  	   -p $(HOST_OUT) \
  	   -k $(KEY_CERT_PAIR) \
@@ -20,7 +20,7 @@ index 471dcb4..46a37ac 100644
  
  .PHONY: otapackage
 diff --git a/tools/releasetools/ota_from_target_files b/tools/releasetools/ota_from_target_files
-index b7e6613..e56d5e5 100755
+index 8d3f6ce..55331c5 100755
 --- a/tools/releasetools/ota_from_target_files
 +++ b/tools/releasetools/ota_from_target_files
 @@ -13,6 +13,10 @@
@@ -46,64 +46,71 @@ index b7e6613..e56d5e5 100755
  
    -e  (--extra_script)  <file>
        Insert the contents of file at the end of the update script.
-@@ -52,6 +55,9 @@ Usage:  ota_from_target_files [flags] input_target_files output_ota_package
-   -a  (--aslr_mode)  <on|off>
-       Specify whether to turn on ASLR for the package (on by default).
+@@ -57,6 +60,9 @@ Usage:  ota_from_target_files [flags] input_target_files output_ota_package
+       first, so that any changes made to the system partition are done
+       using the new recovery (new kernel, etc.).
  
 +  -r  (--no_recovery)
-+      Suppress recovery processing
++      Suppress recovery processing (ignored for two-step packages).
 +
  """
  
  import sys
-@@ -89,6 +95,7 @@ OPTIONS.extra_script = None
- OPTIONS.aslr_mode = True
+@@ -95,6 +101,7 @@ OPTIONS.aslr_mode = True
  OPTIONS.worker_threads = 3
+ OPTIONS.two_step = False
  OPTIONS.no_signing = False
 +OPTIONS.no_recovery = False
  
  def MostPopularKey(d, default):
    """Given a dict, return the key corresponding to the largest
-@@ -427,9 +434,9 @@ def WriteFullOTAPackage(input_zip, output_zip):
+@@ -433,9 +440,8 @@ def WriteFullOTAPackage(input_zip, output_zip):
      ts = GetBuildProp("ro.build.date.utc", OPTIONS.info_dict)
      ts_text = GetBuildProp("ro.build.date", OPTIONS.info_dict)
      script.AssertOlderBuild(ts, ts_text)
+-
+-  AppendAssertions(script, OPTIONS.info_dict)
+-  device_specific.FullOTA_Assertions()
 +    AppendAssertions(script, OPTIONS.info_dict)
 +    device_specific.FullOTA_Assertions()
  
--  AppendAssertions(script, OPTIONS.info_dict)
--  device_specific.FullOTA_Assertions()
-   device_specific.FullOTA_InstallBegin()
+   # Two-step package strategy (in chronological order, which is *not*
+   # the order in which the generated script has things):
+@@ -456,8 +462,9 @@ def WriteFullOTAPackage(input_zip, output_zip):
+   #       set up system to update recovery partition on first boot
+   #    complete script normally (allow recovery to mark itself finished and reboot)
  
-   script.ShowProgress(0.5, 0)
-@@ -442,7 +449,9 @@ def WriteFullOTAPackage(input_zip, output_zip):
+-  recovery_img = common.GetBootableImage("recovery.img", "recovery.img",
+-                                         OPTIONS.input_tmp, "RECOVERY")
++  if not OPTIONS.no_recovery:
++    recovery_img = common.GetBootableImage("recovery.img", "recovery.img",
++                                           OPTIONS.input_tmp, "RECOVERY")
+   if OPTIONS.two_step:
+     if not OPTIONS.info_dict.get("multistage_support", None):
+       assert False, "two-step packages not supported by this build"
+@@ -488,7 +495,8 @@ else if get_stage("%(bcb_dev)s", "stage") == "3/3" then
  
    script.FormatPartition("/system")
    script.Mount("/system")
 -  script.UnpackPackageDir("recovery", "/system")
 +  if not OPTIONS.no_recovery:
 +    script.UnpackPackageDir("recovery", "/system")
-+
    script.UnpackPackageDir("system", "/system")
  
    symlinks = CopySystemFiles(input_zip, output_zip)
-@@ -450,9 +459,10 @@ def WriteFullOTAPackage(input_zip, output_zip):
+@@ -496,7 +504,8 @@ else if get_stage("%(bcb_dev)s", "stage") == "3/3" then
  
    boot_img = common.GetBootableImage("boot.img", "boot.img",
                                       OPTIONS.input_tmp, "BOOT")
--  recovery_img = common.GetBootableImage("recovery.img", "recovery.img",
--                                         OPTIONS.input_tmp, "RECOVERY")
 -  MakeRecoveryPatch(OPTIONS.input_tmp, output_zip, recovery_img, boot_img)
 +  if not OPTIONS.no_recovery:
-+    recovery_img = common.GetBootableImage("recovery.img", "recovery.img",
-+                                           OPTIONS.input_tmp, "RECOVERY")
 +    MakeRecoveryPatch(OPTIONS.input_tmp, output_zip, recovery_img, boot_img)
  
    Item.GetMetadata(input_zip)
    Item.Get("system").SetPermissions(script)
-@@ -604,12 +614,15 @@ def WriteIncrementalOTAPackage(target_zip, source_zip, output_zip):
-       "/tmp/boot.img", "boot.img", OPTIONS.target_tmp, "BOOT")
-   updating_boot = (source_boot.data != target_boot.data)
+@@ -683,12 +692,15 @@ def WriteIncrementalOTAPackage(target_zip, source_zip, output_zip):
+   updating_boot = (not OPTIONS.two_step and
+                    (source_boot.data != target_boot.data))
  
 -  source_recovery = common.GetBootableImage(
 -      "/tmp/recovery.img", "recovery.img", OPTIONS.source_tmp, "RECOVERY",
@@ -123,8 +130,8 @@ index b7e6613..e56d5e5 100755
  
    # Here's how we divide up the progress bar:
    #  0.1 for verifying the start state (PatchCheck calls)
-@@ -825,12 +838,14 @@ def main(argv):
-       OPTIONS.worker_threads = int(a)
+@@ -971,12 +983,14 @@ def main(argv):
+       OPTIONS.two_step = True
      elif o in ("--no_signing"):
        OPTIONS.no_signing = True
 +    elif o in ("-r", "--no_recovery"):
@@ -134,16 +141,26 @@ index b7e6613..e56d5e5 100755
      return True
  
    args = common.ParseOptions(argv, __doc__,
--                             extra_opts="b:k:i:d:wne:a:",
-+                             extra_opts="b:k:i:d:wne:a:r",
+-                             extra_opts="b:k:i:d:wne:a:2",
++                             extra_opts="b:k:i:d:wne:a:2r",
                               extra_long_opts=["board_config=",
                                                "package_key=",
                                                "incremental_from=",
-@@ -840,6 +855,7 @@ def main(argv):
-                                               "worker_threads=",
+@@ -987,6 +1001,7 @@ def main(argv):
                                                "aslr_mode=",
+                                               "two_step",
                                                "no_signing",
 +                                              "no_recovery",
                                                ],
                               extra_option_handler=option_handler)
+ 
+@@ -994,6 +1009,9 @@ def main(argv):
+     common.Usage(__doc__)
+     sys.exit(1)
+ 
++  if OPTIONS.two_step:
++    OPTIONS.no_recovery = False;
++
+   if OPTIONS.extra_script is not None:
+     OPTIONS.extra_script = open(OPTIONS.extra_script).read()
  
