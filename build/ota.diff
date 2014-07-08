@@ -1,0 +1,170 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed, 4 Jun 2014 02:31:47 -0500
+Subject: enable passing OTA packaging options from 'BoardConfig.mk'
+
+diff --git a/core/Makefile b/core/Makefile
+index 27f22a9..ec0c63f 100644
+--- a/core/Makefile
++++ b/core/Makefile
+@@ -1285,6 +1285,8 @@ ifneq ($(recovery_fstab),)
+ 
+ # -----------------------------------------------------------------
+ # OTA update package
++#
++# DoPa (20140604) - added 'OTA_EXTRA_OPTIONS' here and in BoardConfig.mk
+ 
+ name := $(TARGET_PRODUCT)
+ ifeq ($(TARGET_BUILD_TYPE),debug)
+@@ -1301,6 +1303,7 @@ $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) $(DISTTOOLS)
+ 	$(hide) ./build/tools/releasetools/ota_from_target_files -v \
+ 	   -p $(HOST_OUT) \
+ 	   -k $(KEY_CERT_PAIR) \
++	   $(OTA_EXTRA_OPTIONS) \
+ 	   $(BUILT_TARGET_FILES_PACKAGE) $@
+ 
+ .PHONY: otapackage
+diff --git a/tools/releasetools/ota_from_target_files b/tools/releasetools/ota_from_target_files
+index a31d70a..70052e1 100755
+--- a/tools/releasetools/ota_from_target_files
++++ b/tools/releasetools/ota_from_target_files
+@@ -13,6 +13,10 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
++#
++# DoPa (20140604) - added '--no_recovery' option
++#                   changed '--no_prereq' to suppress both date & device checks
++#
+ 
+ """
+ Given a target-files zipfile, produces an OTA package that installs
+@@ -42,9 +46,8 @@ Usage:  ota_from_target_files [flags] input_target_files output_ota_package
+       when installed.
+ 
+   -n  (--no_prereq)
+-      Omit the timestamp prereq check normally included at the top of
+-      the build scripts (used for developer OTA packages which
+-      legitimately need to go back and forth).
++      Omit the timestamp and device prereq check normally included at
++      the top of full OTA build scripts (ignored for incremental OTAs)
+ 
+   -e  (--extra_script)  <file>
+       Insert the contents of file at the end of the update script.
+@@ -57,6 +60,9 @@ Usage:  ota_from_target_files [flags] input_target_files output_ota_package
+       first, so that any changes made to the system partition are done
+       using the new recovery (new kernel, etc.).
+ 
++  -r  (--no_recovery)
++      Suppress recovery processing (ignored for two-step packages).
++
+ """
+ 
+ import sys
+@@ -94,6 +100,7 @@ OPTIONS.extra_script = None
+ OPTIONS.aslr_mode = True
+ OPTIONS.worker_threads = 3
+ OPTIONS.two_step = False
++OPTIONS.no_recovery = False
+ 
+ def MostPopularKey(d, default):
+   """Given a dict, return the key corresponding to the largest
+@@ -432,9 +439,8 @@ def WriteFullOTAPackage(input_zip, output_zip):
+     ts = GetBuildProp("ro.build.date.utc", OPTIONS.info_dict)
+     ts_text = GetBuildProp("ro.build.date", OPTIONS.info_dict)
+     script.AssertOlderBuild(ts, ts_text)
+-
+-  AppendAssertions(script, OPTIONS.info_dict)
+-  device_specific.FullOTA_Assertions()
++    AppendAssertions(script, OPTIONS.info_dict)
++    device_specific.FullOTA_Assertions()
+ 
+   # Two-step package strategy (in chronological order, which is *not*
+   # the order in which the generated script has things):
+@@ -455,8 +461,9 @@ def WriteFullOTAPackage(input_zip, output_zip):
+   #       set up system to update recovery partition on first boot
+   #    complete script normally (allow recovery to mark itself finished and reboot)
+ 
+-  recovery_img = common.GetBootableImage("recovery.img", "recovery.img",
+-                                         OPTIONS.input_tmp, "RECOVERY")
++  if not OPTIONS.no_recovery:
++    recovery_img = common.GetBootableImage("recovery.img", "recovery.img",
++                                           OPTIONS.input_tmp, "RECOVERY")
+   if OPTIONS.two_step:
+     if not OPTIONS.info_dict.get("multistage_support", None):
+       assert False, "two-step packages not supported by this build"
+@@ -487,7 +494,8 @@ else if get_stage("%(bcb_dev)s", "stage") == "3/3" then
+ 
+   script.FormatPartition("/system")
+   script.Mount("/system")
+-  script.UnpackPackageDir("recovery", "/system")
++  if not OPTIONS.no_recovery:
++    script.UnpackPackageDir("recovery", "/system")
+   script.UnpackPackageDir("system", "/system")
+ 
+   symlinks = CopySystemFiles(input_zip, output_zip)
+@@ -495,7 +503,8 @@ else if get_stage("%(bcb_dev)s", "stage") == "3/3" then
+ 
+   boot_img = common.GetBootableImage("boot.img", "boot.img",
+                                      OPTIONS.input_tmp, "BOOT")
+-  MakeRecoveryPatch(OPTIONS.input_tmp, output_zip, recovery_img, boot_img)
++  if not OPTIONS.no_recovery:
++    MakeRecoveryPatch(OPTIONS.input_tmp, output_zip, recovery_img, boot_img)
+ 
+   Item.GetMetadata(input_zip)
+   Item.Get("system").SetPermissions(script)
+@@ -682,12 +691,15 @@ def WriteIncrementalOTAPackage(target_zip, source_zip, output_zip):
+   updating_boot = (not OPTIONS.two_step and
+                    (source_boot.data != target_boot.data))
+ 
+-  source_recovery = common.GetBootableImage(
+-      "/tmp/recovery.img", "recovery.img", OPTIONS.source_tmp, "RECOVERY",
+-      OPTIONS.source_info_dict)
+-  target_recovery = common.GetBootableImage(
+-      "/tmp/recovery.img", "recovery.img", OPTIONS.target_tmp, "RECOVERY")
+-  updating_recovery = (source_recovery.data != target_recovery.data)
++  if OPTIONS.no_recovery:
++    updating_recovery = False;
++  else:
++    source_recovery = common.GetBootableImage(
++        "/tmp/recovery.img", "recovery.img", OPTIONS.source_tmp, "RECOVERY",
++        OPTIONS.source_info_dict)
++    target_recovery = common.GetBootableImage(
++        "/tmp/recovery.img", "recovery.img", OPTIONS.target_tmp, "RECOVERY")
++    updating_recovery = (source_recovery.data != target_recovery.data)
+ 
+   # Here's how we divide up the progress bar:
+   #  0.1 for verifying the start state (PatchCheck calls)
+@@ -968,12 +980,14 @@ def main(argv):
+       OPTIONS.worker_threads = int(a)
+     elif o in ("-2", "--two_step"):
+       OPTIONS.two_step = True
++    elif o in ("-r", "--no_recovery"):
++      OPTIONS.no_recovery = True
+     else:
+       return False
+     return True
+ 
+   args = common.ParseOptions(argv, __doc__,
+-                             extra_opts="b:k:i:d:wne:a:2",
++                             extra_opts="b:k:i:d:wne:a:2r",
+                              extra_long_opts=["board_config=",
+                                               "package_key=",
+                                               "incremental_from=",
+@@ -983,6 +997,7 @@ def main(argv):
+                                               "worker_threads=",
+                                               "aslr_mode=",
+                                               "two_step",
++                                              "no_recovery"
+                                               ],
+                              extra_option_handler=option_handler)
+ 
+@@ -990,6 +1005,9 @@ def main(argv):
+     common.Usage(__doc__)
+     sys.exit(1)
+ 
++  if OPTIONS.two_step:
++    OPTIONS.no_recovery = False;
++
+   if OPTIONS.extra_script is not None:
+     OPTIONS.extra_script = open(OPTIONS.extra_script).read()
+ 
