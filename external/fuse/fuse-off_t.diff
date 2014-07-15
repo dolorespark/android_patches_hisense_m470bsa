@@ -1,0 +1,30 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Tue 15 Jul 2014 14:07:00 -0400
+Subject: remove conflicting definition of 'off_t'
+
+diff --git a/include/fuse_common.h b/include/fuse_common.h
+index 882caf0..a4d980d 100644
+--- a/include/fuse_common.h
++++ b/include/fuse_common.h
+@@ -15,10 +15,6 @@
+ #ifndef _FUSE_COMMON_H_
+ #define _FUSE_COMMON_H_
+ 
+-#if defined(__ANDROID__)
+-#define _OFF_T_DEFINED_
+-#endif
+-
+ #include "fuse_opt.h"
+ #include <stdint.h>
+ #include <sys/types.h>
+@@ -37,10 +33,6 @@
+ #error Please add -D_FILE_OFFSET_BITS=64 to your compile flags!
+ #endif
+ 
+-#if defined(__ANDROID__)
+-typedef loff_t off_t;
+-#endif
+-
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
