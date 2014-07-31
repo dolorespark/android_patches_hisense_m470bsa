@@ -19,4 +19,9 @@
            revision="refs/heads/cm-11.0"
            remote="cm" />
 
+  <project path="external/f2fs-tools"
+           name="platform/external/f2fs-tools"
+           revision="master"
+           remote="aosp" />
+
 </manifest>

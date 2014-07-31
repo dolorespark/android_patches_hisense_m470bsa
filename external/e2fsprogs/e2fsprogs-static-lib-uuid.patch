@@ -1,0 +1,46 @@
+From e85a8c8dec23bbc84b74e9d00000925cba21635f Mon Sep 17 00:00:00 2001
+From: JP Abgrall <jpa@google.com>
+Date: Wed, 11 Jun 2014 22:37:12 -0700
+Subject: [PATCH] lib/uuid: make a static library also
+
+Change-Id: Idb36204f2d8cadb9564db445d5301f705ce4d043
+Signed-off-by: JP Abgrall <jpa@google.com>
+---
+ lib/uuid/Android.mk |   24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/lib/uuid/Android.mk b/lib/uuid/Android.mk
+index a30feb0..5a387da 100644
+--- a/lib/uuid/Android.mk
++++ b/lib/uuid/Android.mk
+@@ -65,3 +65,27 @@ LOCAL_MODULE := libext2_uuid_host
+ LOCAL_MODULE_TAGS := optional
+ 
+ include $(BUILD_HOST_SHARED_LIBRARY)
++
++
++include $(CLEAR_VARS)
++
++LOCAL_SRC_FILES := $(libext2_uuid_src_files)
++LOCAL_C_INCLUDES := $(libext2_uuid_c_includes)
++LOCAL_CFLAGS := $(libext2_uuid_cflags)
++LOCAL_STATIC_LIBRARIES := libc
++LOCAL_MODULE := libext2_uuid_static
++LOCAL_MODULE_TAGS := optional
++LOCAL_PRELINK_MODULE := false
++
++include $(BUILD_STATIC_LIBRARY)
++
++
++include $(CLEAR_VARS)
++
++LOCAL_SRC_FILES := $(libext2_uuid_src_files)
++LOCAL_C_INCLUDES := $(libext2_uuid_c_includes)
++LOCAL_CFLAGS := $(libext2_uuid_cflags)
++LOCAL_MODULE := libext2_uuid_host
++LOCAL_MODULE_TAGS := optional
++
++include $(BUILD_HOST_STATIC_LIBRARY)
+-- 
+1.7.9.5
+

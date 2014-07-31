@@ -1,0 +1,48 @@
+From ded89d02b7425a77a60d351e1bc5559c40e37f18 Mon Sep 17 00:00:00 2001
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed, 30 Jul 2014 19:25:29 -0400
+Subject: [PATCH] add functions from 'mntent.cpp' not implemented by AOSP444
+
+---
+ lib/libf2fs.c |   25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/lib/libf2fs.c b/lib/libf2fs.c
+index 6168c5c..61b5e20 100644
+--- a/lib/libf2fs.c
++++ b/lib/libf2fs.c
+@@ -23,6 +23,31 @@
+ 
+ #include <f2fs_fs.h>
+ 
++/* DoPa (20140729) - copied the following from Android L's mntent.h
++ *                   and mntent.cpp to satisfy some functions below
++ */
++
++#include <paths.h>  /* for _PATH_MOUNTED */
++
++#define MOUNTED _PATH_MOUNTED
++
++struct mntent* getmntent_r(FILE* fp, struct mntent* mp, char* mode, int i) {
++  return NULL;
++}
++
++FILE* setmntent(const char* path, const char* mode) {
++  return fopen(path, mode);
++}
++
++int endmntent(FILE* fp) {
++  if (fp != NULL) {
++    fclose(fp);
++  }
++  return 1;
++}
++
++/* end kludge */
++
+ void ASCIIToUNICODE(u_int16_t *out_buf, u_int8_t *in_buf)
+ {
+ 	u_int8_t *pchTempPtr = in_buf;
+-- 
+1.7.9.5
+

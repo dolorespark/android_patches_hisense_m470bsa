@@ -1,0 +1,837 @@
+From 13e2c97a4c5f1f3b243e0c64f16fa90981c336f3 Mon Sep 17 00:00:00 2001
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed, 30 Jul 2014 19:09:51 -0400
+Subject: [PATCH] copy 'f2fs_utils' from a post-4.4.4 version of AOSP
+
+---
+ f2fs_utils/Android.mk       |   82 +++++++++++++++++++
+ f2fs_utils/NOTICE           |  190 +++++++++++++++++++++++++++++++++++++++++++
+ f2fs_utils/f2fs_dlutils.c   |   65 +++++++++++++++
+ f2fs_utils/f2fs_ioutils.c   |  188 ++++++++++++++++++++++++++++++++++++++++++
+ f2fs_utils/f2fs_utils.c     |   78 ++++++++++++++++++
+ f2fs_utils/make_f2fs.h      |   33 ++++++++
+ f2fs_utils/make_f2fs_main.c |   88 ++++++++++++++++++++
+ f2fs_utils/mkf2fsuserimg.sh |   34 ++++++++
+ 8 files changed, 758 insertions(+)
+ create mode 100644 f2fs_utils/Android.mk
+ create mode 100644 f2fs_utils/MODULE_LICENSE_APACHE2
+ create mode 100644 f2fs_utils/NOTICE
+ create mode 100644 f2fs_utils/f2fs_dlutils.c
+ create mode 100644 f2fs_utils/f2fs_ioutils.c
+ create mode 100644 f2fs_utils/f2fs_utils.c
+ create mode 100644 f2fs_utils/make_f2fs.h
+ create mode 100644 f2fs_utils/make_f2fs_main.c
+ create mode 100755 f2fs_utils/mkf2fsuserimg.sh
+
+diff --git a/f2fs_utils/Android.mk b/f2fs_utils/Android.mk
+new file mode 100644
+index 0000000..080606e
+--- /dev/null
++++ b/f2fs_utils/Android.mk
+@@ -0,0 +1,82 @@
++# Copyright 2014 The Android Open Source Project
++
++LOCAL_PATH:= $(call my-dir)
++
++ifeq ($(HOST_OS),linux)
++
++include $(CLEAR_VARS)
++LOCAL_MODULE := libf2fs_utils_host
++LOCAL_SRC_FILES := f2fs_utils.c
++LOCAL_STATIC_LIBRARIES := \
++    libsparse_host \
++    libz
++LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
++include $(BUILD_HOST_STATIC_LIBRARY)
++
++include $(CLEAR_VARS)
++LOCAL_SRC_FILES := f2fs_ioutils.c
++LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
++LOCAL_STATIC_LIBRARIES := \
++    libsparse_host \
++    libext2_uuid_host \
++    libz
++LOCAL_MODULE := libf2fs_ioutils_host
++include $(BUILD_HOST_STATIC_LIBRARY)
++
++include $(CLEAR_VARS)
++LOCAL_SRC_FILES := f2fs_dlutils.c
++LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
++# Will attempt to dlopen("libf2fs_fmt_host_dyn")
++LOCAL_LDLIBS := -ldl
++LOCAL_MODULE := libf2fs_dlutils_host
++include $(BUILD_HOST_STATIC_LIBRARY)
++
++include $(CLEAR_VARS)
++LOCAL_SRC_FILES := make_f2fs_main.c
++LOCAL_MODULE := make_f2fs
++# libf2fs_dlutils_host will dlopen("libf2fs_fmt_host_dyn")
++LOCAL_LDFLAGS := -ldl -rdynamic
++# The following libf2fs_* are from system/extras/f2fs_utils,
++# and do not use code in external/f2fs-tools.
++LOCAL_STATIC_LIBRARIES := libf2fs_utils_host libf2fs_ioutils_host libf2fs_dlutils_host
++LOCAL_REQUIRED_MODULES := libf2fs_fmt_host_dyn
++LOCAL_STATIC_LIBRARIES += \
++    libsparse_host \
++    libz
++include $(BUILD_HOST_EXECUTABLE)
++
++include $(CLEAR_VARS)
++LOCAL_MODULE := libf2fs_dlutils
++LOCAL_SRC_FILES := f2fs_dlutils.c
++LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
++LOCAL_SHARED_LIBRARIES := libdl
++include $(BUILD_SHARED_LIBRARY)
++
++include $(CLEAR_VARS)
++LOCAL_MODULE := libf2fs_dlutils_static
++LOCAL_SRC_FILES := f2fs_dlutils.c
++LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
++LOCAL_SHARED_LIBRARIES := libdl
++include $(BUILD_STATIC_LIBRARY)
++
++include $(CLEAR_VARS)
++LOCAL_MODULE := libf2fs_utils_static
++LOCAL_SRC_FILES := f2fs_utils.c
++LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
++LOCAL_STATIC_LIBRARIES := \
++    libsparse_static
++include $(BUILD_STATIC_LIBRARY)
++
++endif
++
++include $(CLEAR_VARS)
++LOCAL_MODULE := mkf2fsuserimg.sh
++LOCAL_SRC_FILES := mkf2fsuserimg.sh
++LOCAL_MODULE_CLASS := EXECUTABLES
++# We don't need any additional suffix.
++LOCAL_MODULE_SUFFIX :=
++LOCAL_BUILT_MODULE_STEM := $(notdir $(LOCAL_SRC_FILES))
++LOCAL_IS_HOST_MODULE := true
++include $(BUILD_PREBUILT)
++
++
+diff --git a/f2fs_utils/MODULE_LICENSE_APACHE2 b/f2fs_utils/MODULE_LICENSE_APACHE2
+new file mode 100644
+index 0000000..e69de29
+diff --git a/f2fs_utils/NOTICE b/f2fs_utils/NOTICE
+new file mode 100644
+index 0000000..5d14293
+--- /dev/null
++++ b/f2fs_utils/NOTICE
+@@ -0,0 +1,190 @@
++
++   Copyright (c) 2010, The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++   you may not use this file except in compliance with the License.
++
++   Unless required by applicable law or agreed to in writing, software
++   distributed under the License is distributed on an "AS IS" BASIS,
++   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++   See the License for the specific language governing permissions and
++   limitations under the License.
++
++
++                                 Apache License
++                           Version 2.0, January 2004
++                        http://www.apache.org/licenses/
++
++   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
++
++   1. Definitions.
++
++      "License" shall mean the terms and conditions for use, reproduction,
++      and distribution as defined by Sections 1 through 9 of this document.
++
++      "Licensor" shall mean the copyright owner or entity authorized by
++      the copyright owner that is granting the License.
++
++      "Legal Entity" shall mean the union of the acting entity and all
++      other entities that control, are controlled by, or are under common
++      control with that entity. For the purposes of this definition,
++      "control" means (i) the power, direct or indirect, to cause the
++      direction or management of such entity, whether by contract or
++      otherwise, or (ii) ownership of fifty percent (50%) or more of the
++      outstanding shares, or (iii) beneficial ownership of such entity.
++
++      "You" (or "Your") shall mean an individual or Legal Entity
++      exercising permissions granted by this License.
++
++      "Source" form shall mean the preferred form for making modifications,
++      including but not limited to software source code, documentation
++      source, and configuration files.
++
++      "Object" form shall mean any form resulting from mechanical
++      transformation or translation of a Source form, including but
++      not limited to compiled object code, generated documentation,
++      and conversions to other media types.
++
++      "Work" shall mean the work of authorship, whether in Source or
++      Object form, made available under the License, as indicated by a
++      copyright notice that is included in or attached to the work
++      (an example is provided in the Appendix below).
++
++      "Derivative Works" shall mean any work, whether in Source or Object
++      form, that is based on (or derived from) the Work and for which the
++      editorial revisions, annotations, elaborations, or other modifications
++      represent, as a whole, an original work of authorship. For the purposes
++      of this License, Derivative Works shall not include works that remain
++      separable from, or merely link (or bind by name) to the interfaces of,
++      the Work and Derivative Works thereof.
++
++      "Contribution" shall mean any work of authorship, including
++      the original version of the Work and any modifications or additions
++      to that Work or Derivative Works thereof, that is intentionally
++      submitted to Licensor for inclusion in the Work by the copyright owner
++      or by an individual or Legal Entity authorized to submit on behalf of
++      the copyright owner. For the purposes of this definition, "submitted"
++      means any form of electronic, verbal, or written communication sent
++      to the Licensor or its representatives, including but not limited to
++      communication on electronic mailing lists, source code control systems,
++      and issue tracking systems that are managed by, or on behalf of, the
++      Licensor for the purpose of discussing and improving the Work, but
++      excluding communication that is conspicuously marked or otherwise
++      designated in writing by the copyright owner as "Not a Contribution."
++
++      "Contributor" shall mean Licensor and any individual or Legal Entity
++      on behalf of whom a Contribution has been received by Licensor and
++      subsequently incorporated within the Work.
++
++   2. Grant of Copyright License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      copyright license to reproduce, prepare Derivative Works of,
++      publicly display, publicly perform, sublicense, and distribute the
++      Work and such Derivative Works in Source or Object form.
++
++   3. Grant of Patent License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      (except as stated in this section) patent license to make, have made,
++      use, offer to sell, sell, import, and otherwise transfer the Work,
++      where such license applies only to those patent claims licensable
++      by such Contributor that are necessarily infringed by their
++      Contribution(s) alone or by combination of their Contribution(s)
++      with the Work to which such Contribution(s) was submitted. If You
++      institute patent litigation against any entity (including a
++      cross-claim or counterclaim in a lawsuit) alleging that the Work
++      or a Contribution incorporated within the Work constitutes direct
++      or contributory patent infringement, then any patent licenses
++      granted to You under this License for that Work shall terminate
++      as of the date such litigation is filed.
++
++   4. Redistribution. You may reproduce and distribute copies of the
++      Work or Derivative Works thereof in any medium, with or without
++      modifications, and in Source or Object form, provided that You
++      meet the following conditions:
++
++      (a) You must give any other recipients of the Work or
++          Derivative Works a copy of this License; and
++
++      (b) You must cause any modified files to carry prominent notices
++          stating that You changed the files; and
++
++      (c) You must retain, in the Source form of any Derivative Works
++          that You distribute, all copyright, patent, trademark, and
++          attribution notices from the Source form of the Work,
++          excluding those notices that do not pertain to any part of
++          the Derivative Works; and
++
++      (d) If the Work includes a "NOTICE" text file as part of its
++          distribution, then any Derivative Works that You distribute must
++          include a readable copy of the attribution notices contained
++          within such NOTICE file, excluding those notices that do not
++          pertain to any part of the Derivative Works, in at least one
++          of the following places: within a NOTICE text file distributed
++          as part of the Derivative Works; within the Source form or
++          documentation, if provided along with the Derivative Works; or,
++          within a display generated by the Derivative Works, if and
++          wherever such third-party notices normally appear. The contents
++          of the NOTICE file are for informational purposes only and
++          do not modify the License. You may add Your own attribution
++          notices within Derivative Works that You distribute, alongside
++          or as an addendum to the NOTICE text from the Work, provided
++          that such additional attribution notices cannot be construed
++          as modifying the License.
++
++      You may add Your own copyright statement to Your modifications and
++      may provide additional or different license terms and conditions
++      for use, reproduction, or distribution of Your modifications, or
++      for any such Derivative Works as a whole, provided Your use,
++      reproduction, and distribution of the Work otherwise complies with
++      the conditions stated in this License.
++
++   5. Submission of Contributions. Unless You explicitly state otherwise,
++      any Contribution intentionally submitted for inclusion in the Work
++      by You to the Licensor shall be under the terms and conditions of
++      this License, without any additional terms or conditions.
++      Notwithstanding the above, nothing herein shall supersede or modify
++      the terms of any separate license agreement you may have executed
++      with Licensor regarding such Contributions.
++
++   6. Trademarks. This License does not grant permission to use the trade
++      names, trademarks, service marks, or product names of the Licensor,
++      except as required for reasonable and customary use in describing the
++      origin of the Work and reproducing the content of the NOTICE file.
++
++   7. Disclaimer of Warranty. Unless required by applicable law or
++      agreed to in writing, Licensor provides the Work (and each
++      Contributor provides its Contributions) on an "AS IS" BASIS,
++      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++      implied, including, without limitation, any warranties or conditions
++      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
++      PARTICULAR PURPOSE. You are solely responsible for determining the
++      appropriateness of using or redistributing the Work and assume any
++      risks associated with Your exercise of permissions under this License.
++
++   8. Limitation of Liability. In no event and under no legal theory,
++      whether in tort (including negligence), contract, or otherwise,
++      unless required by applicable law (such as deliberate and grossly
++      negligent acts) or agreed to in writing, shall any Contributor be
++      liable to You for damages, including any direct, indirect, special,
++      incidental, or consequential damages of any character arising as a
++      result of this License or out of the use or inability to use the
++      Work (including but not limited to damages for loss of goodwill,
++      work stoppage, computer failure or malfunction, or any and all
++      other commercial damages or losses), even if such Contributor
++      has been advised of the possibility of such damages.
++
++   9. Accepting Warranty or Additional Liability. While redistributing
++      the Work or Derivative Works thereof, You may choose to offer,
++      and charge a fee for, acceptance of support, warranty, indemnity,
++      or other liability obligations and/or rights consistent with this
++      License. However, in accepting such obligations, You may act only
++      on Your own behalf and on Your sole responsibility, not on behalf
++      of any other Contributor, and only if You agree to indemnify,
++      defend, and hold each Contributor harmless for any liability
++      incurred by, or claims asserted against, such Contributor by reason
++      of your accepting any such warranty or additional liability.
++
++   END OF TERMS AND CONDITIONS
++
+diff --git a/f2fs_utils/f2fs_dlutils.c b/f2fs_utils/f2fs_dlutils.c
+new file mode 100644
+index 0000000..40be416
+--- /dev/null
++++ b/f2fs_utils/f2fs_dlutils.c
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (C) 2014 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#define _LARGEFILE64_SOURCE
++
++#include <stdio.h>
++
++#include <dlfcn.h>
++#include <assert.h>
++
++#include <f2fs_fs.h>
++#include <f2fs_format_utils.h>
++#define F2FS_DYN_LIB "libf2fs_fmt_host_dyn.so"
++
++int (*f2fs_format_device_dl)(void);
++void (*f2fs_init_configuration_dl)(struct f2fs_configuration *);
++
++int f2fs_format_device(void) {
++	assert(f2fs_format_device_dl);
++	return f2fs_format_device_dl();
++}
++void f2fs_init_configuration(struct f2fs_configuration *config) {
++	assert(f2fs_init_configuration_dl);
++	f2fs_init_configuration_dl(config);
++}
++
++int dlopenf2fs() {
++	void* f2fs_lib;
++
++	f2fs_lib = dlopen(F2FS_DYN_LIB, RTLD_NOW);
++	if (!f2fs_lib) {
++		return -1;
++	}
++	f2fs_format_device_dl = dlsym(f2fs_lib, "f2fs_format_device");
++	f2fs_init_configuration_dl = dlsym(f2fs_lib, "f2fs_init_configuration");
++	if (!f2fs_format_device_dl || !f2fs_init_configuration_dl) {
++		return -1;
++	}
++	return 0;
++}
+diff --git a/f2fs_utils/f2fs_ioutils.c b/f2fs_utils/f2fs_ioutils.c
+new file mode 100644
+index 0000000..53b7b4b
+--- /dev/null
++++ b/f2fs_utils/f2fs_ioutils.c
+@@ -0,0 +1,188 @@
++/*
++ * Copyright (C) 2014 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#define _LARGEFILE64_SOURCE
++
++#include <asm/types.h>
++#include <errno.h>
++#include <linux/fs.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>  /* memset() */
++#include <sys/param.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <fcntl.h>
++#include <dlfcn.h>
++
++#include <assert.h>
++
++#include <f2fs_fs.h>
++#include <f2fs_format_utils.h>
++
++#include <sparse/sparse.h>
++
++struct selabel_handle;
++
++#include "make_f2fs.h"
++
++#ifdef USE_MINGW
++
++#include <winsock2.h>
++
++/* These match the Linux definitions of these flags.
++   L_xx is defined to avoid conflicting with the win32 versions.
++*/
++#define L_S_IRUSR 00400
++#define L_S_IWUSR 00200
++#define L_S_IXUSR 00100
++#define S_IRWXU (L_S_IRUSR | L_S_IWUSR | L_S_IXUSR)
++#define S_IRGRP 00040
++#define S_IWGRP 00020
++#define S_IXGRP 00010
++#define S_IRWXG (S_IRGRP | S_IWGRP | S_IXGRP)
++#define S_IROTH 00004
++#define S_IWOTH 00002
++#define S_IXOTH 00001
++#define S_IRWXO (S_IROTH | S_IWOTH | S_IXOTH)
++#define S_ISUID 0004000
++#define S_ISGID 0002000
++#define S_ISVTX 0001000
++
++#else
++
++#include <selinux/selinux.h>
++#include <selinux/label.h>
++#include <selinux/android.h>
++
++#define O_BINARY 0
++
++#endif
++
++struct f2fs_configuration config;
++struct sparse_file *f2fs_sparse_file;
++
++struct buf_item {
++	void *buf;
++	size_t len;
++	struct buf_item *next;
++};
++
++struct buf_item *buf_list;
++
++static int dev_write_fd(void *buf, __u64 offset, size_t len)
++{
++	if (lseek64(config.fd, (off64_t)offset, SEEK_SET) < 0)
++		return -1;
++	if (write(config.fd, buf, len) != len)
++		return -1;
++	return 0;
++}
++
++void flush_sparse_buffs()
++{
++	while (buf_list) {
++		struct buf_item *bi = buf_list;
++		buf_list = buf_list->next;
++		free(bi->buf);
++		free(bi);
++	}
++}
++
++static int dev_write_sparse(void *buf, __u64 byte_offset, size_t byte_len)
++{
++	struct buf_item *bi = calloc(1, sizeof(struct buf_item));
++
++	if (bi == NULL) {
++		return -ENOMEM;
++	}
++	bi->buf = malloc(byte_len);
++	if (bi->buf == NULL) {
++		free(bi);
++		return -ENOMEM;
++	}
++
++	bi->len = byte_len;
++	memcpy(bi->buf, buf, byte_len);
++	bi->next = buf_list;
++	buf_list = bi;
++
++	sparse_file_add_data(f2fs_sparse_file, bi->buf, byte_len, byte_offset/F2FS_BLKSIZE);
++	return 0;
++}
++
++void f2fs_finalize_device(struct f2fs_configuration *c)
++{
++}
++
++int f2fs_trim_device()
++{
++	return 0;
++}
++
++/*
++ * IO interfaces
++ */
++int dev_read(void  *buf, __u64 offset, size_t len)
++{
++	return 0;
++}
++
++int dev_write(void *buf, __u64 offset, size_t len)
++{
++	if (config.fd >= 0) {
++		return dev_write_fd(buf, offset, len);
++	} else {
++		return dev_write_sparse(buf, offset, len);
++	}
++}
++
++
++int dev_fill(void *buf, __u64 offset, size_t len)
++{
++	int ret;
++	if (config.fd >= 0) {
++		return dev_write_fd(buf, offset, len);
++	}
++        // sparse file fills with zero by default.
++	// return sparse_file_add_fill(f2fs_sparse_file, ((__u8*)(bi->buf))[0], byte_len, byte_offset/F2FS_BLKSIZE);
++	return 0;
++}
++
++int dev_read_block(void *buf, __u64 blk_addr)
++{
++	assert(false); // Must not be invoked.
++	return 0;
++}
++
++int dev_read_blocks(void *buf, __u64 addr, __u32 nr_blks)
++{
++	assert(false); // Must not be invoked.
++	return 0;
++}
++
+diff --git a/f2fs_utils/f2fs_utils.c b/f2fs_utils/f2fs_utils.c
+new file mode 100644
+index 0000000..d42ccc1
+--- /dev/null
++++ b/f2fs_utils/f2fs_utils.c
+@@ -0,0 +1,78 @@
++/*
++ * Copyright (C) 2014 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#define _LARGEFILE64_SOURCE
++
++#include <fcntl.h>
++#include <dlfcn.h>
++
++#include <f2fs_fs.h>
++#include <f2fs_format_utils.h>
++
++#include <sparse/sparse.h>
++
++struct selabel_handle;
++
++#include "make_f2fs.h"
++
++extern void flush_sparse_buffs();
++
++struct f2fs_configuration config;
++struct sparse_file *f2fs_sparse_file;
++extern int dlopenf2fs();
++
++static void reset_f2fs_info() {
++	// Reset all the global data structures used by make_f2fs so it
++	// can be called again.
++	memset(&config, 0, sizeof(config));
++	config.fd = -1;
++	if (f2fs_sparse_file) {
++		sparse_file_destroy(f2fs_sparse_file);
++		f2fs_sparse_file = NULL;
++	}
++}
++
++int make_f2fs_sparse_fd(int fd, long long len,
++		const char *mountpoint, struct selabel_handle *sehnd)
++{
++	if (dlopenf2fs() < 0) {
++		return -1;
++	}
++	reset_f2fs_info();
++	f2fs_init_configuration(&config);
++	len &= ~((__u64)F2FS_BLKSIZE);
++	config.total_sectors = len / config.sector_size;
++	config.start_sector = 0;
++	f2fs_sparse_file = sparse_file_new(F2FS_BLKSIZE, len);
++	f2fs_format_device();
++	sparse_file_write(f2fs_sparse_file, fd, /*gzip*/0, /*sparse*/1, /*crc*/0);
++	sparse_file_destroy(f2fs_sparse_file);
++	flush_sparse_buffs();
++	f2fs_sparse_file = NULL;
++	return 0;
++}
+diff --git a/f2fs_utils/make_f2fs.h b/f2fs_utils/make_f2fs.h
+new file mode 100644
+index 0000000..f02694a
+--- /dev/null
++++ b/f2fs_utils/make_f2fs.h
+@@ -0,0 +1,33 @@
++/*
++ * Copyright (C) 2010 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef _MAKE_F2FS_H_
++#define _MAKE_F2FS_H_
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++struct selabel_handle;
++
++int make_f2fs_sparse_fd(int fd, long long len,
++              const char *mountpoint, struct selabel_handle *sehnd);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/f2fs_utils/make_f2fs_main.c b/f2fs_utils/make_f2fs_main.c
+new file mode 100644
+index 0000000..8404266
+--- /dev/null
++++ b/f2fs_utils/make_f2fs_main.c
+@@ -0,0 +1,88 @@
++/*
++ * Copyright (C) 2014 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <fcntl.h>
++#include <libgen.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++
++#if defined(__linux__)
++#include <linux/fs.h>
++#elif defined(__APPLE__) && defined(__MACH__)
++#include <sys/disk.h>
++#endif
++
++#ifndef USE_MINGW /* O_BINARY is windows-specific flag */
++#define O_BINARY 0
++#endif
++
++static void usage(char *path)
++{
++	fprintf(stderr, "%s -l <len>\n", basename(path));
++	fprintf(stderr, "    <filename>\n");
++}
++
++int main(int argc, char **argv)
++{
++	int opt;
++	const char *filename = NULL;
++	int fd;
++	int exitcode;
++	long long len;
++	while ((opt = getopt(argc, argv, "l:")) != -1) {
++		switch (opt) {
++		case 'l':
++			len = atoll(optarg);
++			break;
++		default: /* '?' */
++			usage(argv[0]);
++			exit(EXIT_FAILURE);
++		}
++	}
++
++
++	if (optind >= argc) {
++		fprintf(stderr, "Expected filename after options\n");
++		usage(argv[0]);
++		exit(EXIT_FAILURE);
++	}
++
++	filename = argv[optind++];
++
++	if (optind < argc) {
++		fprintf(stderr, "Unexpected argument: %s\n", argv[optind]);
++		usage(argv[0]);
++		exit(EXIT_FAILURE);
++	}
++
++	if (strcmp(filename, "-")) {
++		fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
++		if (fd < 0) {
++			perror("open");
++			return EXIT_FAILURE;
++		}
++	} else {
++		fd = STDOUT_FILENO;
++	}
++
++        exitcode = make_f2fs_sparse_fd(fd, len, NULL, NULL);
++
++	close(fd);
++	if (exitcode && strcmp(filename, "-"))
++		unlink(filename);
++	return exitcode;
++}
+diff --git a/f2fs_utils/mkf2fsuserimg.sh b/f2fs_utils/mkf2fsuserimg.sh
+new file mode 100755
+index 0000000..93ec743
+--- /dev/null
++++ b/f2fs_utils/mkf2fsuserimg.sh
+@@ -0,0 +1,34 @@
++#!/bin/bash
++#
++# To call this script, make sure make_f2fs is somewhere in PATH
++
++function usage() {
++cat<<EOT
++Usage:
++${0##*/} OUTPUT_FILE SIZE
++EOT
++}
++
++echo "in mkf2fsuserimg.sh PATH=$PATH"
++
++if [ $# -lt 2 ]; then
++  usage
++  exit 1
++fi
++
++OUTPUT_FILE=$1
++SIZE=$2
++shift; shift
++
++
++if [ -z $SIZE ]; then
++  echo "Need size of filesystem"
++  exit 2
++fi
++
++MAKE_F2FS_CMD="make_f2fs -l $SIZE $OUTPUT_FILE"
++echo $MAKE_F2FS_CMD
++$MAKE_F2FS_CMD
++if [ $? -ne 0 ]; then
++  exit 4
++fi
+-- 
+1.7.9.5
+
