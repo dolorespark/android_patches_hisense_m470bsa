@@ -1,0 +1,20 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Sat, 30 Aug 2014 11:00:54 -0400
+Subject: setup_fs: add test for f2fs formatting
+
+diff --git a/ext4_utils/setup_fs.c b/ext4_utils/setup_fs.c
+index 56c563f..f118f82 100644
+--- a/ext4_utils/setup_fs.c
++++ b/ext4_utils/setup_fs.c
+@@ -34,6 +34,11 @@ int setup_fs(const char *blockdev)
+         fprintf(stderr,"device %s already has a filesystem\n", blockdev);
+         return 0;
+     }
++    snprintf(buf, sizeof(buf), "/sys/fs/f2fs/%s", blockdev);
++    if (access(buf, F_OK) == 0) {
++        fprintf(stderr,"device %s already has a filesystem\n", blockdev);
++        return 0;
++    }
+     snprintf(buf, sizeof(buf), "/dev/block/%s", blockdev);
+ 
+     if (!partition_wiped(buf)) {

@@ -1,0 +1,22 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Tue, 26 Aug 2014 11:14:00 -0400
+Subject: disable if building AOSP recovery
+
+diff --git a/Android.mk b/Android.mk
+index 7037292..b3b596f 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -1,5 +1,7 @@
+ LOCAL_PATH:= $(call my-dir)
+ 
++ifneq ($(RECOVERY_VARIANT),)
++
+ ifneq ($(BOARD_VOLD_MAX_PARTITIONS),)
+ common_cflags += -DVOLD_MAX_PARTITIONS=$(BOARD_VOLD_MAX_PARTITIONS)
+ endif
+@@ -130,3 +132,5 @@ LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+ LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+ LOCAL_MODULE_TAGS := optional
+ include $(BUILD_EXECUTABLE)
++
++endif

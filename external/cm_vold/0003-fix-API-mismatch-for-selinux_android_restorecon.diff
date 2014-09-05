@@ -1,0 +1,18 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon, 25 Aug 2014 16:12:33 -0400
+Subject: fix API mismatch for 'selinux_android_restorecon()
+
+
+diff --git a/VolumeManager.cpp b/VolumeManager.cpp
+index cb23d95..303f272 100644
+--- a/VolumeManager.cpp
++++ b/VolumeManager.cpp
+@@ -658,7 +658,7 @@ int VolumeManager::fixupAsecPermissions(const char *id, gid_t gid, const char* f
+                 result |= fchmod(fd, privateFile ? 0640 : 0644);
+             }
+ 
+-            if (selinux_android_restorecon(ftsent->fts_path, 0) < 0) {
++            if (selinux_android_restorecon(ftsent->fts_path) < 0) {
+                 SLOGE("restorecon failed for %s: %s\n", ftsent->fts_path, strerror(errno));
+                 result |= -1;
+             }

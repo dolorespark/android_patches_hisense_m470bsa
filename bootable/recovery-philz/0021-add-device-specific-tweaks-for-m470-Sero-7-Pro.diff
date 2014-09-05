@@ -1,0 +1,68 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon, 25 Aug 2014 20:23:15 -0400
+Subject: add device-specific tweaks for 'm470' (Sero 7 Pro)
+
+diff --git a/Android.mk b/Android.mk
+index b1e500e..cf7c1af 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -303,10 +303,9 @@ include $(commands_recovery_local_path)/edify/Android.mk
+ include $(commands_recovery_local_path)/updater/Android.mk
+ include $(commands_recovery_local_path)/applypatch/Android.mk
+ include $(commands_recovery_local_path)/utilities/Android.mk
+-include $(commands_recovery_local_path)/su/supersu/Android.mk
+ include $(commands_recovery_local_path)/voldclient/Android.mk
+ include $(commands_recovery_local_path)/device_images/Android.mk
+-include $(commands_recovery_local_path)/loki/Android.mk
++#include $(commands_recovery_local_path)/loki/Android.mk
+ 
+ ifdef PHILZ_TOUCH_RECOVERY
+ ifndef USE_PREBUILT_LIBTOUCH_GUI
+@@ -314,6 +313,10 @@ include $(commands_recovery_local_path)/libtouch_gui/Android.mk
+ endif
+ endif
+ 
++ifneq ($(TARGET_HAS_PREBUILT_SU),true)
++    include $(commands_recovery_local_path)/su/supersu/Android.mk
++endif
++
+ ifneq ($(BOARD_HAS_NO_FB2PNG),true)
+     include $(commands_recovery_local_path)/fb2png/Android.mk
+ endif
+diff --git a/boardconfig/BoardConfig.mk b/boardconfig/BoardConfig.mk
+index d52304d..6b4420c 100644
+--- a/boardconfig/BoardConfig.mk
++++ b/boardconfig/BoardConfig.mk
+@@ -74,8 +74,15 @@
+ #
+ 
+ 
++#Hisense Sero 7 Pro (m470)
++ifeq ($(TARGET_PRODUCT), dopa_m470)
++    TARGET_COMMON_NAME := Hisense Sero 7 Pro
++    TARGET_SCREEN_HEIGHT := 1280
++    TARGET_SCREEN_WIDTH := 800
++    BRIGHTNESS_SYS_FILE := "/sys/class/backlight/pwm-backlight/brightness"
++
+ #Amazon Kindle Fire HD 8.9 (jem)
+-ifeq ($(TARGET_PRODUCT), cm_jem)
++else ifeq ($(TARGET_PRODUCT), cm_jem)
+     TARGET_COMMON_NAME := Kindle Fire HD 8.9
+     TARGET_SCREEN_HEIGHT := 1200
+     TARGET_SCREEN_WIDTH := 1920
+@@ -1009,8 +1016,15 @@ endif
+ #---- end device specific config
+ 
+ 
++# begin dopa_m470 options
++
+ # use libtar for backup/restore instead of busybox
+ # BOARD_RECOVERY_USE_LIBTAR := true
++BOARD_USE_NTFS_3G := true
++TARGET_USERIMAGES_USE_F2FS := true
++NO_AROMA_FILE_MANAGER := true
++
++# end dopa_m470 options
+ 
+ # The below flags must always be defined as default in BoardConfig.mk, unless defined above:
+ # device name to display in About dialog

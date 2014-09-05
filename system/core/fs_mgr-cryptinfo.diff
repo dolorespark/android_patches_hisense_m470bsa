@@ -1,0 +1,53 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Thu, 21 Aug 2014 23:10:37 -0400
+Subject: enable vold/cryptfs.c to query fs_type (needed for F2FS
+ encryption)
+
+diff --git a/fs_mgr/fs_mgr.c b/fs_mgr/fs_mgr.c
+index f432f6a..071310d 100644
+--- a/fs_mgr/fs_mgr.c
++++ b/fs_mgr/fs_mgr.c
+@@ -839,7 +839,8 @@ int fs_mgr_swapon_all(struct fstab *fstab)
+  *
+  * real_blk_device must be at least PROPERTY_VALUE_MAX bytes long
+  */
+-int fs_mgr_get_crypt_info(struct fstab *fstab, char *key_loc, char *real_blk_device, int size)
++int fs_mgr_get_crypt_info(struct fstab *fstab, char *key_loc,
++                          char *real_blk_device,char *fs_type, int size)
+ {
+     int i = 0;
+ 
+@@ -853,6 +854,9 @@ int fs_mgr_get_crypt_info(struct fstab *fstab, char *key_loc, char *real_blk_dev
+     if (real_blk_device) {
+         *real_blk_device = '\0';
+     }
++    if (fs_type) {
++        *fs_type = '\0';
++    }
+ 
+     /* Look for the encryptable partition to find the data */
+     for (i = 0; i < fstab->num_entries; i++) {
+@@ -871,6 +875,10 @@ int fs_mgr_get_crypt_info(struct fstab *fstab, char *key_loc, char *real_blk_dev
+         if (real_blk_device) {
+             strlcpy(real_blk_device, fstab->recs[i].blk_device, size);
+         }
++        if (fs_type) {
++            strlcpy(fs_type, fstab->recs[i].fs_type, size);
++        }
++
+         break;
+     }
+ 
+diff --git a/fs_mgr/include/fs_mgr.h b/fs_mgr/include/fs_mgr.h
+index 0f90c32..23a4fc4 100644
+--- a/fs_mgr/include/fs_mgr.h
++++ b/fs_mgr/include/fs_mgr.h
+@@ -54,7 +54,7 @@ int fs_mgr_do_mount(struct fstab *fstab, char *n_name, char *n_blk_device,
+ int fs_mgr_do_tmpfs_mount(char *n_name);
+ int fs_mgr_unmount_all(struct fstab *fstab);
+ int fs_mgr_get_crypt_info(struct fstab *fstab, char *key_loc,
+-                          char *real_blk_device, int size);
++                          char *real_blk_device, char *fs_type, int size);
+ int fs_mgr_add_entry(struct fstab *fstab,
+                      const char *mount_point, const char *fs_type,
+                      const char *blk_device, long long length);

@@ -1,0 +1,79 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Tue, 26 Aug 2014 10:45:42 -0400
+Subject: add RECOVERY_VARIANT support (a la CM11)
+
+diff --git a/core/Makefile b/core/Makefile
+index ec0c63f..706ab30 100644
+--- a/core/Makefile
++++ b/core/Makefile
+@@ -699,7 +699,12 @@ $(RECOVERY_INSTALL_OTA_KEYS): $(OTA_PUBLIC_KEYS) $(DUMPKEY_JAR) $(extra_keys)
+ 	@mkdir -p $(dir $@)
+ 	java -jar $(DUMPKEY_JAR) $(PRIVATE_OTA_PUBLIC_KEYS) $(extra_keys) > $@
+ 
++INTERNAL_RECOVERY_FILES := $(filter $(TARGET_RECOVERY_OUT)/%, \
++	$(foreach module, $(ALL_MODULES), $(ALL_MODULES.$(module).INSTALLED)) \
++	$(ALL_DEFAULT_INSTALLED_MODULES))
++
+ $(INSTALLED_RECOVERYIMAGE_TARGET): $(MKBOOTFS) $(MKBOOTIMG) $(MINIGZIP) \
++		$(INTERNAL_RECOVERY_FILES) \
+ 		$(INSTALLED_RAMDISK_TARGET) \
+ 		$(INSTALLED_BOOTIMAGE_TARGET) \
+ 		$(recovery_binary) \
+@@ -709,7 +714,6 @@ $(INSTALLED_RECOVERYIMAGE_TARGET): $(MKBOOTFS) $(MKBOOTIMG) $(MINIGZIP) \
+ 		$(recovery_fstab) \
+ 		$(RECOVERY_INSTALL_OTA_KEYS)
+ 	@echo ----- Making recovery image ------
+-	$(hide) rm -rf $(TARGET_RECOVERY_OUT)
+ 	$(hide) mkdir -p $(TARGET_RECOVERY_OUT)
+ 	$(hide) mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/etc $(TARGET_RECOVERY_ROOT_OUT)/tmp
+ 	@echo Copying baseline ramdisk...
+@@ -720,7 +724,7 @@ $(INSTALLED_RECOVERYIMAGE_TARGET): $(MKBOOTFS) $(MKBOOTIMG) $(MINIGZIP) \
+ 	$(hide) -cp $(TARGET_ROOT_OUT)/init.recovery.*.rc $(TARGET_RECOVERY_ROOT_OUT)/
+ 	$(hide) cp -f $(recovery_binary) $(TARGET_RECOVERY_ROOT_OUT)/sbin/
+ 	$(hide) cp -rf $(recovery_resources_common) $(TARGET_RECOVERY_ROOT_OUT)/
+-	$(hide) cp -f $(recovery_font) $(TARGET_RECOVERY_ROOT_OUT)/res/images/font.png
++	$(hide) -cp -f $(recovery_font) $(TARGET_RECOVERY_ROOT_OUT)/res/images/font.png
+ 	$(hide) $(foreach item,$(recovery_resources_private), \
+ 	  cp -rf $(item) $(TARGET_RECOVERY_ROOT_OUT)/)
+ 	$(hide) $(foreach item,$(recovery_fstab), \
+diff --git a/core/config.mk b/core/config.mk
+index 96993c0..c7589ba 100644
+--- a/core/config.mk
++++ b/core/config.mk
+@@ -159,6 +159,11 @@ endif
+ TARGET_DEVICE_DIR := $(patsubst %/,%,$(dir $(board_config_mk)))
+ board_config_mk :=
+ 
++## Rebuild the pathmap if there's a recovery variant. Its path probably changed
++ifneq ($(RECOVERY_VARIANT),)
++  include $(BUILD_SYSTEM)/pathmap.mk
++endif
++
+ # Perhaps we should move this block to build/core/Makefile,
+ # once we don't have TARGET_NO_KERNEL reference in AndroidBoard.mk/Android.mk.
+ ifneq ($(strip $(TARGET_NO_BOOTLOADER)),true)
+diff --git a/core/pathmap.mk b/core/pathmap.mk
+index 5dfc543..3f3dd8b 100644
+--- a/core/pathmap.mk
++++ b/core/pathmap.mk
+@@ -45,7 +45,6 @@ pathmap_INCL := \
+     libthread_db:bionic/libthread_db/include \
+     mkbootimg:system/core/mkbootimg \
+     opengl-tests-includes:frameworks/native/opengl/tests/include \
+-    recovery:bootable/recovery \
+     system-core:system/core/include \
+     audio-effects:system/media/audio_effects/include \
+     audio-utils:system/media/audio_utils/include \
+@@ -54,6 +53,12 @@ pathmap_INCL := \
+     wilhelm-ut:frameworks/wilhelm/src/ut \
+     speex:external/speex/include
+ 
++ifneq ($(RECOVERY_VARIANT),)
++    pathmap_INCL += recovery:bootable/recovery-$(RECOVERY_VARIANT)
++else
++    pathmap_INCL += recovery:bootable/recovery
++endif
++
+ #
+ # Returns the path to the requested module's include directory,
+ # relative to the root of the source tree.  Does not handle external

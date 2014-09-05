@@ -1,0 +1,219 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Thu, 21 Aug 2014 22:36:04 -0400
+Subject: enable encryption for F2FS-formatted volumes
+
+This requires a companion patch to fs_mgr/fs_mgr.c
+
+diff --git a/cryptfs.c b/cryptfs.c
+index a2fc4bb..442d426 100644
+--- a/cryptfs.c
++++ b/cryptfs.c
+@@ -64,9 +64,27 @@
+ 
+ #define EXT4_FS 1
+ #define FAT_FS 2
++#define F2FS_FS 3
+ 
+ #define TABLE_LOAD_RETRIES 10
+ 
++/* only that portion of the f2fs superblock needed to calculate filesystem size */
++struct f2fs_mini_sb {
++    __le32 magic;                   /* Magic Number */
++    __le16 major_ver;               /* Major Version */
++    __le16 minor_ver;               /* Minor Version */
++    __le32 log_sectorsize;          /* log2 sector size in bytes */
++    __le32 log_sectors_per_block;   /* log2 # of sectors per block */
++    __le32 log_blocksize;           /* log2 block size in bytes */
++    __le32 log_blocks_per_seg;      /* log2 # of blocks per segment */
++    __le32 segs_per_sec;            /* # of segments per section */
++    __le32 secs_per_zone;           /* # of sections per zone */
++    __le32 checksum_offset;         /* checksum offset inside super block */
++    __le64 block_count;             /* total # of user blocks */
++    __le32 section_count;           /* total # of sections */
++    __le32 segment_count;           /* total # of segments */
++} __attribute__((packed));
++
+ char *me = "cryptfs";
+ 
+ static unsigned char saved_master_key[KEY_LEN_BYTES];
+@@ -153,35 +171,56 @@ static void get_device_scrypt_params(struct crypt_mnt_ftr *ftr) {
+     ftr->p_factor = params[2];
+ }
+ 
+-static unsigned int get_fs_size(char *dev)
++static unsigned int get_fs_size(char *dev, int fs)
+ {
+-    int fd, block_size;
+-    struct ext4_super_block sb;
++    int     ok, fd, seek_len, read_len;
+     off64_t len;
+ 
+-    if ((fd = open(dev, O_RDONLY)) < 0) {
+-        SLOGE("Cannot open device to get filesystem size ");
+-        return 0;
+-    }
++    union {
++        struct ext4_super_block x;
++        struct f2fs_mini_sb     f;
++    } sb;
+ 
+-    if (lseek64(fd, 1024, SEEK_SET) < 0) {
+-        SLOGE("Cannot seek to superblock");
+-        return 0;
++    switch (fs) {
++        case EXT4_FS:
++            seek_len = 1024;
++            read_len = sizeof(sb.x);
++            break;
++        case F2FS_FS:
++            seek_len = 1024;
++            read_len = sizeof(sb.f);
++            break;
++        default:
++            SLOGE("Cannot get size of unknown filesystem\n");
++            return 0;
+     }
+ 
+-    if (read(fd, &sb, sizeof(sb)) != sizeof(sb)) {
+-        SLOGE("Cannot read superblock");
+-        return 0;
++    ok = 0;
++    if ((fd = open(dev, O_RDONLY)) < 0) {
++        SLOGE("Cannot open device to get filesystem size ");
++    } else {
++        if (lseek64(fd, seek_len, SEEK_SET) < 0) {
++            SLOGE("Cannot seek to superblock");
++        } else if (read(fd, &sb, read_len) != read_len) {
++            SLOGE("Cannot read superblock");
++        } else {
++            ok = 1;
++        }
++        close(fd);
+     }
++    if (!ok)
++        return 0;
+ 
+-    close(fd);
+-
+-    block_size = 1024 << sb.s_log_block_size;
+     /* compute length in bytes */
+-    len = ( ((off64_t)sb.s_blocks_count_hi << 32) + sb.s_blocks_count_lo) * block_size;
++    if (fs == F2FS_FS) {
++        len = sb.f.block_count * (1 << sb.f.log_blocksize);
++    } else {
++        int block_size = 1024 << sb.x.s_log_block_size;
++        len = (((off64_t)sb.x.s_blocks_count_hi << 32) + sb.x.s_blocks_count_lo) * block_size;
++    }
+ 
+     /* return length in sectors */
+-    return (unsigned int) (len / 512);
++    return (unsigned int)(len / 512);
+ }
+ 
+ static int get_crypt_ftr_info(char **metadata_fname, off64_t *off)
+@@ -196,7 +235,7 @@ static int get_crypt_ftr_info(char **metadata_fname, off64_t *off)
+   int rc = -1;
+ 
+   if (!cached_data) {
+-    fs_mgr_get_crypt_info(fstab, key_loc, real_blkdev, sizeof(key_loc));
++    fs_mgr_get_crypt_info(fstab, key_loc, real_blkdev, 0, sizeof(key_loc));
+ 
+     if (!strcmp(key_loc, KEY_IN_FOOTER)) {
+       if ( (fd = open(real_blkdev, O_RDWR)) < 0) {
+@@ -1233,7 +1272,7 @@ static int do_crypto_complete(char *mount_point)
+   }
+ 
+   if (get_crypt_ftr_and_key(&crypt_ftr)) {
+-    fs_mgr_get_crypt_info(fstab, key_loc, 0, sizeof(key_loc));
++    fs_mgr_get_crypt_info(fstab, key_loc, 0, 0, sizeof(key_loc));
+ 
+     /*
+      * Only report this error if key_loc is a file and it exists.
+@@ -1279,7 +1318,7 @@ static int test_mount_encrypted_fs(char *passwd, char *mount_point, char *label)
+     return -1;
+   }
+ 
+-  fs_mgr_get_crypt_info(fstab, 0, real_blkdev, sizeof(real_blkdev));
++  fs_mgr_get_crypt_info(fstab, 0, real_blkdev, 0, sizeof(real_blkdev));
+ 
+   if (get_crypt_ftr_and_key(&crypt_ftr)) {
+     SLOGE("Error getting crypt footer and key\n");
+@@ -1525,6 +1564,14 @@ static int cryptfs_enable_wipe(char *crypto_blkdev, off64_t size, int type)
+         num_args = 6;
+         SLOGI("Making empty filesystem with command %s %s %s %s %s %s\n",
+               args[0], args[1], args[2], args[3], args[4], args[5]);
++    } else if (type== F2FS_FS) {
++        args[0] = HELPER_PATH "mkfs.f2fs";
++        args[1] = crypto_blkdev;
++        snprintf(size_str, sizeof(size_str), "%lld", size);
++        args[2] = size_str;
++        num_args = 3;
++        SLOGI("Making empty filesystem with command %s %s %s\n",
++              args[0], args[1], args[2]);
+     } else if (type== FAT_FS) {
+         args[0] = HELPER_PATH "newfs_msdos";
+         args[1] = "-F";
+@@ -1663,11 +1710,12 @@ int cryptfs_enable(char *howarg, char *passwd)
+     char crypto_blkdev[MAXPATHLEN], real_blkdev[MAXPATHLEN];
+     unsigned long nr_sec;
+     unsigned char decrypted_master_key[KEY_LEN_BYTES];
+-    int rc=-1, fd, i, ret;
++    int rc=-1, fd, i, ret, fs_type;
+     struct crypt_mnt_ftr crypt_ftr;
+     struct crypt_persist_data *pdata;
+     char encrypted_state[PROPERTY_VALUE_MAX];
+     char lockid[32] = { 0 };
++    char fs_name[16];
+     char key_loc[PROPERTY_VALUE_MAX];
+     char fuse_sdcard[PROPERTY_VALUE_MAX];
+     char *sd_mnt_point;
+@@ -1681,7 +1729,7 @@ int cryptfs_enable(char *howarg, char *passwd)
+         goto error_unencrypted;
+     }
+ 
+-    fs_mgr_get_crypt_info(fstab, key_loc, 0, sizeof(key_loc));
++    fs_mgr_get_crypt_info(fstab, key_loc, 0, 0, sizeof(key_loc));
+ 
+     if (!strcmp(howarg, "wipe")) {
+       how = CRYPTO_ENABLE_WIPE;
+@@ -1692,7 +1740,7 @@ int cryptfs_enable(char *howarg, char *passwd)
+       goto error_unencrypted;
+     }
+ 
+-    fs_mgr_get_crypt_info(fstab, 0, real_blkdev, sizeof(real_blkdev));
++    fs_mgr_get_crypt_info(fstab, 0, real_blkdev, 0, sizeof(real_blkdev));
+ 
+     /* Get the size of the real block device */
+     fd = open(real_blkdev, O_RDONLY);
+@@ -1702,11 +1750,21 @@ int cryptfs_enable(char *howarg, char *passwd)
+     }
+     close(fd);
+ 
++    fs_mgr_get_crypt_info(fstab, 0, 0, fs_name, sizeof(fs_name));
++    if (!strcmp(fs_name, "ext4")) {
++        fs_type = EXT4_FS;
++    } else if (!strcmp(fs_name, "f2fs")) {
++        fs_type = F2FS_FS;
++    } else {
++        SLOGE("Unknown filesystem type %d\n", fs_name);
++        goto error_unencrypted;
++    }
++
+     /* If doing inplace encryption, make sure the orig fs doesn't include the crypto footer */
+     if ((how == CRYPTO_ENABLE_INPLACE) && (!strcmp(key_loc, KEY_IN_FOOTER))) {
+         unsigned int fs_size_sec, max_fs_size_sec;
+ 
+-        fs_size_sec = get_fs_size(real_blkdev);
++        fs_size_sec = get_fs_size(real_blkdev, fs_type);
+         max_fs_size_sec = nr_sec - (CRYPT_FOOTER_OFFSET / 512);
+ 
+         if (fs_size_sec > max_fs_size_sec) {
+@@ -1887,7 +1945,7 @@ int cryptfs_enable(char *howarg, char *passwd)
+     }
+ 
+     if (how == CRYPTO_ENABLE_WIPE) {
+-        rc = cryptfs_enable_wipe(crypto_blkdev, crypt_ftr.fs_size, EXT4_FS);
++        rc = cryptfs_enable_wipe(crypto_blkdev, crypt_ftr.fs_size, fs_type);
+         /* Encrypt all encryptable volumes handled by vold */
+         if (!rc) {
+             for (i=0; i<num_vols; i++) {

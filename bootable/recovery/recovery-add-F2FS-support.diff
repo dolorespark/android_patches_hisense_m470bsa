@@ -1,0 +1,93 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Sun, 31 Aug 2014 19:05:04 -0400
+Subject: recovery: add F2FS support
+
+diff --git a/Android.mk b/Android.mk
+index ee16977..d43dfba 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -53,7 +53,9 @@ LOCAL_STATIC_LIBRARIES := \
+     libselinux \
+     libstdc++ \
+     libm \
+-    libc
++    libc \
++    libext2_blkid \
++    libext2_uuid_static
+ 
+ ifeq ($(TARGET_USERIMAGES_USE_EXT4), true)
+     LOCAL_CFLAGS += -DUSE_EXT4
+@@ -61,6 +63,11 @@ ifeq ($(TARGET_USERIMAGES_USE_EXT4), true)
+     LOCAL_STATIC_LIBRARIES += libext4_utils_static libz
+ endif
+ 
++ifeq ($(TARGET_USERIMAGES_USE_F2FS), true)
++LOCAL_CFLAGS += -DUSE_F2FS
++LOCAL_STATIC_LIBRARIES += libcm_f2fs_fmt libext2_uuid_static
++endif
++
+ # This binary is in the recovery ramdisk, which is otherwise a copy of root.
+ # It gets copied there in config/Makefile.  LOCAL_MODULE_TAGS suppresses
+ # a (redundant) copy of the binary in /system/bin for user builds.
+diff --git a/roots.cpp b/roots.cpp
+index 113dba1..a940d08 100644
+--- a/roots.cpp
++++ b/roots.cpp
+@@ -112,6 +112,16 @@ int ensure_path_mounted(const char* path) {
+ 
+         LOGE("failed to mount %s (%s)\n", v->mount_point, strerror(errno));
+         return -1;
++#ifdef USE_F2FS
++    } else if (strcmp(v->fs_type, "f2fs") == 0) {
++        result = mount(v->blk_device, v->mount_point, v->fs_type,
++                       MS_NOATIME | MS_NODEV | MS_NODIRATIME,
++                       "inline_xattr,background_gc=off");
++        if (result == 0) return 0;
++
++        LOGE("failed to mount %s (%s)\n", v->mount_point, strerror(errno));
++        return -1;
++#endif
+     }
+ 
+     LOGE("unknown fs_type \"%s\" for %s\n", v->fs_type, v->mount_point);
+@@ -146,6 +156,15 @@ int ensure_path_unmounted(const char* path) {
+     return unmount_mounted_volume(mv);
+ }
+ 
++#ifdef USE_F2FS
++#ifdef __cplusplus
++extern "C" {
++#endif
++extern int make_f2fs_main(int argc, char **argv);
++#ifdef __cplusplus
++}
++#endif
++#endif
+ int format_volume(const char* volume) {
+     Volume* v = volume_for_path(volume);
+     if (v == NULL) {
+@@ -199,6 +218,24 @@ int format_volume(const char* volume) {
+         return 0;
+     }
+ 
++#ifdef USE_F2FS
++    if (strcmp(v->fs_type, "f2fs") == 0) {
++        int   arg_cnt = 2;
++        char  len[32];
++        char* args[] = { "mkfs.f2fs", v->blk_device, len };
++
++        if (v->length) {
++            sprintf(len, "%llu", v->length / 512);
++            arg_cnt++;
++        }
++        if (make_f2fs_main(arg_cnt, args) != 0) {
++            LOGE("format_volume: mkfs.f2fs failed on %s\n", v->blk_device);
++            return -1;
++        }
++        return 0;
++    }
++#endif
++
+     LOGE("format_volume: fs_type \"%s\" unsupported\n", v->fs_type);
+     return -1;
+ }

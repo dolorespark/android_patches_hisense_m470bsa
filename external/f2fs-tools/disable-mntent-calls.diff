@@ -1,0 +1,43 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Thu, 21 Aug 2014 21:45:14 -0400
+Subject: disable calls from libf2fs.c to mntent functions
+
+diff --git a/lib/libf2fs.c b/lib/libf2fs.c
+index 6168c5c..a741955 100644
+--- a/lib/libf2fs.c
++++ b/lib/libf2fs.c
+@@ -370,6 +370,10 @@ void f2fs_init_configuration(struct f2fs_configuration *c)
+ 	c->trim = 1;
+ }
+ 
++/* set/get/endmntent() are not supported on Android, and
++ * only getmntent() has a stub, so don't even go there
++ */
++#if 0
+ static int is_mounted(const char *mpt, const char *device)
+ {
+ 	FILE *file = NULL;
+@@ -386,12 +390,15 @@ static int is_mounted(const char *mpt, const char *device)
+ 	endmntent(file);
+ 	return mnt ? 1 : 0;
+ }
++#endif
+ 
+ int f2fs_dev_is_umounted(struct f2fs_configuration *c)
+ {
+ 	struct stat st_buf;
+ 	int ret = 0;
+ 
++    /* don't bother calling a dysfunctional function */
++#if 0
+ 	ret = is_mounted(MOUNTED, c->device_name);
+ 	if (ret) {
+ 		MSG(0, "\tError: Not available on mounted device!\n");
+@@ -407,6 +414,7 @@ int f2fs_dev_is_umounted(struct f2fs_configuration *c)
+ 		MSG(0, "\tError: Not available on mounted device!\n");
+ 		return -1;
+ 	}
++#endif
+ 
+ 	/*
+ 	 * If f2fs is umounted with -l, the process can still use

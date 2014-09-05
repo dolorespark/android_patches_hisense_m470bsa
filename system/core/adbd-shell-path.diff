@@ -1,0 +1,37 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Sun, 24 Aug 2014 11:35:04 -0400
+Subject: ADBD: change path to shell when in Recovery
+
+diff --git a/adb/services.c b/adb/services.c
+index 89e595c..d6aac1a 100644
+--- a/adb/services.c
++++ b/adb/services.c
+@@ -251,6 +251,8 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
+ #define SHELL_COMMAND "/bin/sh"
+ #else
+ #define SHELL_COMMAND "/system/bin/sh"
++#define RECOVERY_SHELL_COMMAND "/sbin/sh"
++extern int recovery_mode;
+ #endif
+ 
+ #if !ADB_HOST
+@@ -291,10 +293,17 @@ static int create_subproc_thread(const char *name)
+     adb_thread_t t;
+     int ret_fd;
+     pid_t pid;
++    char *shell;
++
++    if (recovery_mode) {
++        shell = RECOVERY_SHELL_COMMAND;
++    } else {
++        shell = SHELL_COMMAND;
++    }
+     if(name) {
+-        ret_fd = create_subprocess(SHELL_COMMAND, "-c", name, &pid);
++        ret_fd = create_subprocess(shell, "-c", name, &pid);
+     } else {
+-        ret_fd = create_subprocess(SHELL_COMMAND, "-", 0, &pid);
++        ret_fd = create_subprocess(shell, "-", 0, &pid);
+     }
+     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
+ 

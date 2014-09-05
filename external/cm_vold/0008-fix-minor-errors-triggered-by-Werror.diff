@@ -1,0 +1,45 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Tue, 26 Aug 2014 10:52:17 -0400
+Subject: fix minor errors triggered by -Werror
+
+diff --git a/VolumeManager.cpp b/VolumeManager.cpp
+index 303f272..9d0eb6f 100644
+--- a/VolumeManager.cpp
++++ b/VolumeManager.cpp
+@@ -432,7 +432,7 @@ int VolumeManager::createAsec(const char *id, unsigned int numSectors, const cha
+         int formatStatus;
+         char mountPoint[255];
+ 
+-        int written = snprintf(mountPoint, sizeof(mountPoint), "%s/%s", Volume::ASECDIR, id);
++        written = snprintf(mountPoint, sizeof(mountPoint), "%s/%s", Volume::ASECDIR, id);
+         if ((written < 0) || (size_t(written) >= sizeof(mountPoint))) {
+             SLOGE("ASEC fs format failed: couldn't construct mountPoint");
+             if (cleanupDm) {
+diff --git a/cryptfs.c b/cryptfs.c
+index 442d426..0a52369 100644
+--- a/cryptfs.c
++++ b/cryptfs.c
+@@ -1655,11 +1655,11 @@ static int cryptfs_enable_inplace(char *crypto_blkdev, char *real_blkdev, off64_
+     for (i=0; i<numblocks; i++) {
+         new_pct = (i + blocks_already_done) / one_pct;
+         if (new_pct > cur_pct) {
+-            char buf[8];
++            char pct_buf[8];
+ 
+             cur_pct = new_pct;
+-            snprintf(buf, sizeof(buf), "%lld", cur_pct);
+-            property_set("vold.encrypt_progress", buf);
++            snprintf(pct_buf, sizeof(pct_buf), "%lld", cur_pct);
++            property_set("vold.encrypt_progress", pct_buf);
+         }
+         if (unix_read(realfd, buf, CRYPT_INPLACE_BUFSIZE) <= 0) {
+             SLOGE("Error reading real_blkdev %s for inplace encrypt\n", crypto_blkdev);
+@@ -2007,7 +2007,7 @@ int cryptfs_enable(char *howarg, char *passwd)
+             /* wipe data if encryption failed */
+             SLOGE("encryption failed - rebooting into recovery to wipe data\n");
+             mkdir("/cache/recovery", 0700);
+-            int fd = open("/cache/recovery/command", O_RDWR|O_CREAT|O_TRUNC, 0600);
++            fd = open("/cache/recovery/command", O_RDWR|O_CREAT|O_TRUNC, 0600);
+             if (fd >= 0) {
+                 write(fd, "--wipe_data", strlen("--wipe_data") + 1);
+                 close(fd);

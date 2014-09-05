@@ -1,0 +1,180 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Thu, 21 Aug 2014 20:25:09 -0400
+Subject: add F2FS support to libext2_blkid; build static library
+
+diff --git a/lib/blkid/Android.mk b/lib/blkid/Android.mk
+index c93c9b0..293ed74 100644
+--- a/lib/blkid/Android.mk
++++ b/lib/blkid/Android.mk
+@@ -9,6 +9,7 @@ libext2_blkid_src_files := \
+ 	llseek.c \
+ 	probe.c \
+ 	probe_exfat.c \
++	probe_f2fs.c \
+ 	read.c \
+ 	resolve.c \
+ 	save.c \
+@@ -66,6 +67,16 @@ include $(BUILD_SHARED_LIBRARY)
+ include $(CLEAR_VARS)
+ 
+ LOCAL_SRC_FILES := $(libext2_blkid_src_files)
++LOCAL_C_INCLUDES := $(libext2_blkid_c_includes)
++LOCAL_CFLAGS := $(libext2_blkid_cflags) $(libext2_blkid_cflags_linux)
++LOCAL_MODULE := libext2_blkid
++LOCAL_MODULE_TAGS := optional
++
++include $(BUILD_STATIC_LIBRARY)
++
++include $(CLEAR_VARS)
++
++LOCAL_SRC_FILES := $(libext2_blkid_src_files)
+ LOCAL_SHARED_LIBRARIES := $(addsuffix _host, $(libext2_blkid_shared_libraries))
+ LOCAL_C_INCLUDES := $(libext2_blkid_c_includes)
+ ifeq ($(HOST_OS),linux)
+diff --git a/lib/blkid/probe.c b/lib/blkid/probe.c
+index cd8ada6..0f7ca92 100644
+--- a/lib/blkid/probe.c
++++ b/lib/blkid/probe.c
+@@ -40,6 +40,10 @@ extern int probe_exfat(struct blkid_probe *probe,
+ 		      struct blkid_magic *id __BLKID_ATTR((unused)),
+ 		      unsigned char *buf);
+ 
++extern int probe_f2fs(struct blkid_probe *probe,
++		      struct blkid_magic *id __BLKID_ATTR((unused)),
++		      unsigned char *buf);
++
+ static int figure_label_len(const unsigned char *label, int len)
+ {
+ 	const unsigned char *end = label + len - 1;
+@@ -1407,6 +1411,7 @@ static struct blkid_magic type_array[] = {
+   { "ext4",	 1,   0x38,  2, "\123\357",		probe_ext4 },
+   { "ext3",	 1,   0x38,  2, "\123\357",		probe_ext3 },
+   { "ext2",	 1,   0x38,  2, "\123\357",		probe_ext2 },
++  { "f2fs",	 1,      0,  4, "\x10\x20\xf5\xf2",	probe_f2fs },
+   { "reiserfs",	 8,   0x34,  8, "ReIsErFs",		probe_reiserfs },
+   { "reiserfs", 64,   0x34,  9, "ReIsEr2Fs",		probe_reiserfs },
+   { "reiserfs", 64,   0x34,  9, "ReIsEr3Fs",		probe_reiserfs },
+diff --git a/lib/blkid/probe_f2fs.c b/lib/blkid/probe_f2fs.c
+new file mode 100644
+index 0000000..85b540a
+--- /dev/null
++++ b/lib/blkid/probe_f2fs.c
+@@ -0,0 +1,118 @@
++/*
++ * Copyright (C) 2010 Andrew Nayenko <resver@gmail.com>
++ * Copyright (C) 2014 Richard Walsh <dolorespark@e-vertise.com>
++ *
++ * This file may be redistributed under the terms of the
++ * GNU Lesser General Public License.
++ */
++
++#include <stdio.h>
++#include <string.h>
++#include "blkidP.h"
++#include "uuid/uuid.h"
++#include "probe.h"
++
++typedef struct blkid_probe* blkid_probe;
++
++#define F2FS_MAX_EXTENSION		64	/* # of extension entries */
++
++struct f2fs_super_block {
++	__u32 magic;			/* Magic Number (0xF2F52010) */
++	__u16 major_ver;		/* Major Version */
++	__u16 minor_ver;		/* Minor Version */
++	__u32 log_sectorsize;		/* log2 sector size in bytes */
++	__u32 log_sectors_per_block;	/* log2 # of sectors per block */
++	__u32 log_blocksize;		/* log2 block size in bytes */
++	__u32 log_blocks_per_seg;	/* log2 # of blocks per segment */
++	__u32 segs_per_sec;		/* # of segments per section */
++	__u32 secs_per_zone;		/* # of sections per zone */
++	__u32 checksum_offset;		/* checksum offset inside super block */
++	__u64 block_count;		/* total # of user blocks */
++	__u32 section_count;		/* total # of sections */
++	__u32 segment_count;		/* total # of segments */
++	__u32 segment_count_ckpt;	/* # of segments for checkpoint */
++	__u32 segment_count_sit;	/* # of segments for SIT */
++	__u32 segment_count_nat;	/* # of segments for NAT */
++	__u32 segment_count_ssa;	/* # of segments for SSA */
++	__u32 segment_count_main;	/* # of segments for main area */
++	__u32 segment0_blkaddr;	/* start block address of segment 0 */
++	__u32 cp_blkaddr;		/* start block address of checkpoint */
++	__u32 sit_blkaddr;		/* start block address of SIT */
++	__u32 nat_blkaddr;		/* start block address of NAT */
++	__u32 ssa_blkaddr;		/* start block address of SSA */
++	__u32 main_blkaddr;		/* start block address of main area */
++	__u32 root_ino;		/* root inode number */
++	__u32 node_ino;		/* node inode number */
++	__u32 meta_ino;		/* meta inode number */
++	__u8  uuid[16];			/* 128-bit uuid for volume */
++	__u16 volume_name[512];	/* volume name */
++	__u32 extension_count;		/* # of extensions below */
++	__u8 extension_list[F2FS_MAX_EXTENSION][8];	/* extension array */
++	__u32 cp_payload;
++} __attribute__((packed));
++
++
++static void unicode_16le_to_utf8(unsigned char *str, int out_len,
++				 const unsigned char *buf, int in_len)
++{
++	int i, j;
++	unsigned int c;
++
++	for (i = j = 0; i + 2 <= in_len; i += 2) {
++		c = (buf[i+1] << 8) | buf[i];
++		if (c == 0) {
++			str[j] = '\0';
++			break;
++		} else if (c < 0x80) {
++			if (j+1 >= out_len)
++				break;
++			str[j++] = (unsigned char) c;
++		} else if (c < 0x800) {
++			if (j+2 >= out_len)
++				break;
++			str[j++] = (unsigned char) (0xc0 | (c >> 6));
++			str[j++] = (unsigned char) (0x80 | (c & 0x3f));
++		} else {
++			if (j+3 >= out_len)
++				break;
++			str[j++] = (unsigned char) (0xe0 | (c >> 12));
++			str[j++] = (unsigned char) (0x80 | ((c >> 6) & 0x3f));
++			str[j++] = (unsigned char) (0x80 | (c & 0x3f));
++		}
++	}
++	str[j] = '\0';
++}
++
++static void set_uuid(blkid_dev dev, uuid_t uuid, const char *tag)
++{
++	char	str[37];
++
++	if (!uuid_is_null(uuid)) {
++		uuid_unparse(uuid, str);
++		blkid_set_tag(dev, tag ? tag : "UUID", str, sizeof(str));
++	}
++}
++
++int probe_f2fs(struct blkid_probe *probe,
++		      struct blkid_magic *id __BLKID_ATTR((unused)),
++		      unsigned char *buf)
++{
++	struct f2fs_super_block *sb;
++
++	sb = (struct f2fs_super_block *) buf;
++
++    /* don't try to get UUID and label for v1.0 */
++	if (sb->minor_ver == blkid_le16(0) && sb->major_ver == blkid_le16(1))
++		return 0;
++
++	set_uuid(probe->dev, sb->uuid, 0);
++    if (sb->volume_name[0]) {
++		char utf8_label[512];
++
++		unicode_16le_to_utf8((unsigned char*)utf8_label, sizeof(utf8_label),
++							 (unsigned char*)sb->volume_name, 2 * sizeof(sb->volume_name));
++		blkid_set_tag(probe->dev, "LABEL", utf8_label, 0);
++	}
++
++	return 0;
++}
