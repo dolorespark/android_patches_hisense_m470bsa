@@ -1,0 +1,79 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Wed, 1 Oct 2014 11:34:07 -0400
+Subject: use kernel-based exFat support to mount volumes
+
+diff --git a/Exfat.cpp b/Exfat.cpp
+index 236ec8c..58719dd 100644
+--- a/Exfat.cpp
++++ b/Exfat.cpp
+@@ -44,45 +44,44 @@
+ 
+ static char EXFAT_FSCK[] = HELPER_PATH "fsck.exfat";
+ static char EXFAT_MKFS[] = HELPER_PATH "mkfs.exfat";
+-static char EXFAT_MOUNT[] = HELPER_PATH "mount.exfat";
+ 
+ int Exfat::doMount(const char *fsPath, const char *mountPoint,
+                  bool ro, bool remount, bool executable,
+                  int ownerUid, int ownerGid, int permMask) {
+-
+-    int rc = -1;
++    int rc;
++    unsigned long flags;
+     char mountData[255];
+-    const char *args[6];
+-    int status;
+ 
+-    if (access(EXFAT_MOUNT, X_OK)) {
+-        SLOGE("Unable to mount, exFAT FUSE helper not found!");
+-        return rc;
++    flags = MS_NODEV | MS_NOSUID | MS_DIRSYNC | MS_NOATIME;
++
++    flags |= (executable ? 0 : MS_NOEXEC);
++    flags |= (ro ? MS_RDONLY : 0);
++    flags |= (remount ? MS_REMOUNT : 0);
++
++    /*
++     * Note: This is a temporary hack. If the sampling profiler is enabled,
++     * we make the SD card world-writable so any process can write snapshots.
++     *
++     * TODO: Remove this code once we have a drop box in system_server.
++     */
++    char value[PROPERTY_VALUE_MAX];
++    property_get("persist.sampling_profiler", value, "");
++    if (value[0] == '1') {
++        SLOGW("The SD card is world-writable because the"
++            " 'persist.sampling_profiler' system property is set to '1'.");
++        permMask = 0;
+     }
+ 
+     sprintf(mountData,
+-            "noatime,nodev,nosuid,dirsync,uid=%d,gid=%d,fmask=%o,dmask=%o,%s,%s",
+-            ownerUid, ownerGid, permMask, permMask,
+-            (executable ? "exec" : "noexec"),
+-            (ro ? "ro" : "rw"));
++            "discard,uid=%d,gid=%d,fmask=%o,dmask=%o",
++            ownerUid, ownerGid, permMask, permMask);
+ 
+-    args[0] = EXFAT_MOUNT;
+-    args[1] = "-o";
+-    args[2] = mountData;
+-    args[3] = fsPath;
+-    args[4] = mountPoint;
+-    args[5] = NULL;
+-
+-    SLOGW("Executing exFAT mount (%s) -> (%s)", fsPath, mountPoint);
+-
+-    rc = android_fork_execvp(ARRAY_SIZE(args), (char **)args, &status, false,
+-            true);
++    rc = mount(fsPath, mountPoint, "exfat", flags, mountData);
+ 
+     if (rc && errno == EROFS) {
+         SLOGE("%s appears to be a read only filesystem - retrying mount RO", fsPath);
+-        strcat(mountData, ",ro");
+-        rc = android_fork_execvp(ARRAY_SIZE(args), (char **)args, &status, false,
+-            true);
++        flags |= MS_RDONLY;
++        rc = mount(fsPath, mountPoint, "exfat", flags, mountData);
+     }
+ 
+     return rc;

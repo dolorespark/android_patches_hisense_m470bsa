@@ -1,0 +1,463 @@
+From 836ac1e49a0194be19c88946f155a9a776175bb0 Mon Sep 17 00:00:00 2001
+From: Bruno Randolf <br1@einfach.org>
+Date: Tue, 12 Mar 2013 17:29:49 +0000
+Subject: [PATCH] Settings/Wifi: Add support for Ad-Hoc (IBSS) networks
+
+If the WLAN driver can support IBSS mode, show Ad-Hoc (IBSS) networks in the
+list of available Wi-Fi networks and allow to connect to or create new Ad-Hoc
+networks.
+
+This makes use of the new functions of WifiManager in frameworks/base. We have
+to be careful to make the query only after we reached WIFI_STATE_ENABLED.
+WifiSettingsForSetupWizardXL is left out because it does not handle these
+states.
+
+This requires the IBSS changes in frameworks/base.
+
+Change-Id: Id4ebfd28cfd96df1f70f2f5bd35390d65dcb0c1f
+---
+ res/layout/wifi_dialog.xml                         |   22 ++++++
+ res/values/strings.xml                             |    8 +++
+ src/com/android/settings/wifi/AccessPoint.java     |   24 +++++--
+ .../settings/wifi/WifiConfigController.java        |   71 ++++++++++++++++++--
+ .../wifi/WifiConfigUiForSetupWizardXL.java         |    2 +-
+ src/com/android/settings/wifi/WifiDialog.java      |   11 ++-
+ src/com/android/settings/wifi/WifiSettings.java    |   22 ++++--
+ 7 files changed, 140 insertions(+), 20 deletions(-)
+
+diff --git a/res/layout/wifi_dialog.xml b/res/layout/wifi_dialog.xml
+index 7275c73..13b3f00 100644
+--- a/res/layout/wifi_dialog.xml
++++ b/res/layout/wifi_dialog.xml
+@@ -184,6 +184,28 @@
+                     android:orientation="vertical"
+                     android:visibility="gone">
+ 
++            <LinearLayout android:id="@+id/wifi_ibss_toggle"
++                    style="@style/wifi_item"
++                    android:visibility="gone">
++                <CheckBox android:id="@+id/wifi_ibss_checkbox"
++                        style="@style/wifi_item_content"
++                        android:textSize="14sp"
++                        android:text="@string/wifi_mode_ibss" />
++            </LinearLayout>
++
++            <LinearLayout android:id="@+id/wifi_ibss_freq_fields"
++                    style="@style/wifi_item"
++                    android:visibility="gone">
++
++                <TextView android:id="@+id/wifi_ibss_freq_title"
++                        style="@style/wifi_item_label"
++                        android:text="@string/wifi_ibss_freq_title" />
++
++                <Spinner android:id="@+id/wifi_ibss_freq"
++                        style="@style/wifi_item_content"
++                        android:prompt="@string/wifi_ibss_freq_title" />
++            </LinearLayout>
++
+             <LinearLayout android:id="@+id/proxy_settings_fields"
+                     style="@style/wifi_item"
+                     android:visibility="gone">
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 22eb3e8..4be263d 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1507,6 +1507,14 @@
+     <string name="wifi_scan_always_confirm_allow">Allow</string>
+     <string name="wifi_scan_always_confirm_deny">Deny</string>
+ 
++    <string name="wifi_mode">Mode</string>
++    <string name="wifi_mode_ibss">Ad-Hoc (IBSS) Network</string>
++    <string name="wifi_mode_ibss_short">Ad-Hoc</string>
++
++    <string name="wifi_ibss_freq_title">Channel / Frequency</string>
++    <string name="wifi_channel">Channel</string>
++    <string name="wifi_mhz">MHz</string>
++
+     <!-- Button label to connect to a Wi-Fi network -->
+     <string name="wifi_connect">Connect</string>
+     <!-- Failured notification for connect -->
+diff --git a/src/com/android/settings/wifi/AccessPoint.java b/src/com/android/settings/wifi/AccessPoint.java
+index c4d1f7c..9a731a2 100644
+--- a/src/com/android/settings/wifi/AccessPoint.java
++++ b/src/com/android/settings/wifi/AccessPoint.java
+@@ -62,6 +62,8 @@ class AccessPoint extends Preference {
+     int security;
+     int networkId;
+     boolean wpsAvailable = false;
++    boolean isIBSS = false;
++    int frequency;
+ 
+     PskType pskType = PskType.UNKNOWN;
+ 
+@@ -188,6 +190,8 @@ class AccessPoint extends Preference {
+         security = getSecurity(config);
+         networkId = config.networkId;
+         mRssi = Integer.MAX_VALUE;
++        isIBSS = config.isIBSS;
++        frequency = config.frequency;
+         mConfig = config;
+     }
+ 
+@@ -196,6 +200,8 @@ class AccessPoint extends Preference {
+         bssid = result.BSSID;
+         security = getSecurity(result);
+         wpsAvailable = security != SECURITY_EAP && result.capabilities.contains("WPS");
++        isIBSS = result.capabilities.contains("[IBSS]");
++        frequency = result.frequency;
+         if (security == SECURITY_PSK)
+             pskType = getPskType(result);
+         networkId = -1;
+@@ -339,24 +345,28 @@ class AccessPoint extends Preference {
+         setTitle(ssid);
+ 
+         Context context = getContext();
++        StringBuilder summary = new StringBuilder();
++
++        if (isIBSS)
++            summary.append(context.getString(R.string.wifi_mode_ibss_short)).append(" ");
++
+         if (mConfig != null && mConfig.status == WifiConfiguration.Status.DISABLED) {
+             switch (mConfig.disableReason) {
+                 case WifiConfiguration.DISABLED_AUTH_FAILURE:
+-                    setSummary(context.getString(R.string.wifi_disabled_password_failure));
++                    summary.append(context.getString(R.string.wifi_disabled_password_failure));
+                     break;
+                 case WifiConfiguration.DISABLED_DHCP_FAILURE:
+                 case WifiConfiguration.DISABLED_DNS_FAILURE:
+-                    setSummary(context.getString(R.string.wifi_disabled_network_failure));
++                    summary.append(context.getString(R.string.wifi_disabled_network_failure));
+                     break;
+                 case WifiConfiguration.DISABLED_UNKNOWN_REASON:
+-                    setSummary(context.getString(R.string.wifi_disabled_generic));
++                    summary.append(context.getString(R.string.wifi_disabled_generic));
+             }
+         } else if (mRssi == Integer.MAX_VALUE) { // Wifi out of range
+-            setSummary(context.getString(R.string.wifi_not_in_range));
++            summary.append(context.getString(R.string.wifi_not_in_range));
+         } else if (mState != null) { // This is the active connection
+-            setSummary(Summary.get(context, mState));
++            summary.append(Summary.get(context, mState));
+         } else { // In range, not disabled.
+-            StringBuilder summary = new StringBuilder();
+             if (mConfig != null) { // Is saved network
+                 summary.append(context.getString(R.string.wifi_remembered));
+             }
+@@ -378,8 +388,8 @@ class AccessPoint extends Preference {
+                     summary.append(context.getString(R.string.wifi_wps_available_second_item));
+                 }
+             }
+-            setSummary(summary.toString());
+         }
++        setSummary(summary.toString());
+     }
+ 
+     /**
+diff --git a/src/com/android/settings/wifi/WifiConfigController.java b/src/com/android/settings/wifi/WifiConfigController.java
+index 55dc033..50eb961 100644
+--- a/src/com/android/settings/wifi/WifiConfigController.java
++++ b/src/com/android/settings/wifi/WifiConfigController.java
+@@ -35,6 +35,7 @@ import android.net.wifi.WifiEnterpriseConfig;
+ import android.net.wifi.WifiEnterpriseConfig.Eap;
+ import android.net.wifi.WifiEnterpriseConfig.Phase2;
+ import android.net.wifi.WifiInfo;
++import android.net.wifi.WifiChannel;
+ import android.os.Handler;
+ import android.security.Credentials;
+ import android.security.KeyStore;
+@@ -59,7 +60,9 @@ import com.android.settings.ProxySelector;
+ import com.android.settings.R;
+ 
+ import java.net.InetAddress;
++import java.util.ArrayList;
+ import java.util.Iterator;
++import java.util.List;
+ 
+ /**
+  * The class for allowing UIs like {@link WifiDialog} and {@link WifiConfigUiBase} to
+@@ -72,8 +75,13 @@ public class WifiConfigController implements TextWatcher,
+     private final AccessPoint mAccessPoint;
+ 
+     private boolean mEdit;
++    private boolean mIbssSupported;
++    private List<WifiChannel> mSupportedIbssChannels;
++    private int mSelectedIbssChannelPos;
+ 
+     private TextView mSsidView;
++    private CheckBox mIbssView;
++    private Spinner mIbssFreqSpinner;
+ 
+     // e.g. AccessPoint.SECURITY_NONE
+     private int mAccessPointSecurity;
+@@ -140,7 +148,8 @@ public class WifiConfigController implements TextWatcher,
+     private final Handler mTextViewChangedHandler;
+ 
+     public WifiConfigController(
+-            WifiConfigUiBase parent, View view, AccessPoint accessPoint, boolean edit) {
++            WifiConfigUiBase parent, View view, AccessPoint accessPoint, boolean edit,
++            boolean ibssSupported, List<WifiChannel> chans) {
+         mConfigUi = parent;
+         mInXlSetupWizard = (parent instanceof WifiConfigUiForSetupWizardXL);
+ 
+@@ -149,6 +158,7 @@ public class WifiConfigController implements TextWatcher,
+         mAccessPointSecurity = (accessPoint == null) ? AccessPoint.SECURITY_NONE :
+                 accessPoint.security;
+         mEdit = edit;
++        mIbssSupported = ibssSupported;
+ 
+         mTextViewChangedHandler = new Handler();
+         final Context context = mConfigUi.getContext();
+@@ -169,6 +179,9 @@ public class WifiConfigController implements TextWatcher,
+         mIpSettingsSpinner.setOnItemSelectedListener(this);
+         mProxySettingsSpinner = (Spinner) mView.findViewById(R.id.proxy_settings);
+         mProxySettingsSpinner.setOnItemSelectedListener(this);
++        mIbssView = (CheckBox) mView.findViewById(R.id.wifi_ibss_checkbox);
++        mIbssView.setOnCheckedChangeListener(this);
++        mIbssFreqSpinner = (Spinner) mView.findViewById(R.id.wifi_ibss_freq);
+ 
+         if (mAccessPoint == null) { // new network
+             mConfigUi.setTitle(R.string.wifi_add_network);
+@@ -196,6 +209,28 @@ public class WifiConfigController implements TextWatcher,
+             ((CheckBox)mView.findViewById(R.id.wifi_advanced_togglebox))
+                     .setOnCheckedChangeListener(this);
+ 
++            if (mIbssSupported) {
++                mView.findViewById(R.id.wifi_ibss_toggle).setVisibility(View.VISIBLE);
++
++                mSupportedIbssChannels = new ArrayList<WifiChannel>();
++                List<String> freqSpinnerList = new ArrayList<String>();
++
++                for (WifiChannel c : chans) {
++                    if (c.ibssAllowed) {
++                        mSupportedIbssChannels.add(c);
++                        freqSpinnerList.add(context.getString(R.string.wifi_channel) + " " +
++                                            Integer.toString(c.channel) + " (" +
++                                            Integer.toString(c.frequency) + " " +
++                                            context.getString(R.string.wifi_mhz) + ")");
++                    }
++                }
++
++                ArrayAdapter<String> freqAdapter = new ArrayAdapter<String>(context,
++                        android.R.layout.simple_spinner_item, freqSpinnerList);
++                freqAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
++                mIbssFreqSpinner.setAdapter(freqAdapter);
++                mIbssFreqSpinner.setOnItemSelectedListener(this);
++            }
+ 
+             mConfigUi.setSubmitButton(context.getString(R.string.wifi_save));
+         } else {
+@@ -203,6 +238,13 @@ public class WifiConfigController implements TextWatcher,
+ 
+             ViewGroup group = (ViewGroup) mView.findViewById(R.id.info);
+ 
++            if (mAccessPoint.isIBSS) {
++                addRow(group, R.string.wifi_mode, context.getString(R.string.wifi_mode_ibss));
++                addRow(group, R.string.wifi_ibss_freq_title,
++                       Integer.toString(mAccessPoint.frequency) + " " +
++                       context.getString(R.string.wifi_mhz));
++            }
++
+             DetailedState state = mAccessPoint.getState();
+             if (state != null) {
+                 addRow(group, R.string.wifi_status, Summary.get(mConfigUi.getContext(), state));
+@@ -221,7 +263,8 @@ public class WifiConfigController implements TextWatcher,
+ 
+             addRow(group, R.string.wifi_security, mAccessPoint.getSecurityString(false));
+ 
+-            boolean showAdvancedFields = false;
++            // always show advanced fields for IBSS, because we usually need a static IP
++            boolean showAdvancedFields = mAccessPoint.isIBSS;
+             if (mAccessPoint.networkId != INVALID_NETWORK_ID) {
+                 WifiConfiguration config = mAccessPoint.getConfig();
+                 if (config.ipAssignment == IpAssignment.STATIC) {
+@@ -267,7 +310,7 @@ public class WifiConfigController implements TextWatcher,
+             if (mEdit) {
+                 mConfigUi.setSubmitButton(context.getString(R.string.wifi_save));
+             } else {
+-                if (state == null && level != -1) {
++                if (state == null && (level != -1 || mAccessPoint.isIBSS)) {
+                     mConfigUi.setSubmitButton(context.getString(R.string.wifi_connect));
+                 } else {
+                     mView.findViewById(R.id.ip_fields).setVisibility(View.GONE);
+@@ -330,13 +373,23 @@ public class WifiConfigController implements TextWatcher,
+         if (mAccessPoint == null) {
+             config.SSID = AccessPoint.convertToQuotedString(
+                     mSsidView.getText().toString());
+-            // If the user adds a network manually, assume that it is hidden.
+-            config.hiddenSSID = true;
++
++            if (mIbssView.isChecked()) {
++                config.isIBSS = true;
++                config.frequency = mSupportedIbssChannels.get(mSelectedIbssChannelPos).frequency;
++            } else {
++                // If the user adds a network manually, assume that it is hidden.
++                config.hiddenSSID = true;
++            }
+         } else if (mAccessPoint.networkId == INVALID_NETWORK_ID) {
+             config.SSID = AccessPoint.convertToQuotedString(
+                     mAccessPoint.ssid);
++            config.isIBSS = mAccessPoint.isIBSS;
++            config.frequency = mAccessPoint.frequency;
+         } else {
+             config.networkId = mAccessPoint.networkId;
++            config.isIBSS = mAccessPoint.isIBSS;
++            config.frequency = mAccessPoint.frequency;
+         }
+ 
+         switch (mAccessPointSecurity) {
+@@ -893,6 +946,12 @@ public class WifiConfigController implements TextWatcher,
+             } else {
+                 mView.findViewById(R.id.wifi_advanced_fields).setVisibility(View.GONE);
+             }
++        } else if (view.getId() == R.id.wifi_ibss_checkbox) {
++            if (((CheckBox) view).isChecked()) {
++                mView.findViewById(R.id.wifi_ibss_freq_fields).setVisibility(View.VISIBLE);
++            } else {
++                mView.findViewById(R.id.wifi_ibss_freq_fields).setVisibility(View.GONE);
++            }
+         }
+     }
+ 
+@@ -905,6 +964,8 @@ public class WifiConfigController implements TextWatcher,
+             showSecurityFields();
+         } else if (parent == mProxySettingsSpinner) {
+             showProxyFields();
++        } else if (parent == mIbssFreqSpinner) {
++            mSelectedIbssChannelPos = position;
+         } else {
+             showIpConfigFields();
+         }
+diff --git a/src/com/android/settings/wifi/WifiConfigUiForSetupWizardXL.java b/src/com/android/settings/wifi/WifiConfigUiForSetupWizardXL.java
+index 440e694..f86b9c8 100644
+--- a/src/com/android/settings/wifi/WifiConfigUiForSetupWizardXL.java
++++ b/src/com/android/settings/wifi/WifiConfigUiForSetupWizardXL.java
+@@ -68,7 +68,7 @@ public class WifiConfigUiForSetupWizardXL implements WifiConfigUiBase, OnFocusCh
+         mInflater = (LayoutInflater)activity.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+ 
+         mView = mInflater.inflate(R.layout.wifi_config_ui_for_setup_wizard, parent, true);
+-        mController = new WifiConfigController(this, mView, mAccessPoint, edit);
++        mController = new WifiConfigController(this, mView, mAccessPoint, edit, false, null);
+ 
+         mInputMethodManager = (InputMethodManager)
+                 activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+diff --git a/src/com/android/settings/wifi/WifiDialog.java b/src/com/android/settings/wifi/WifiDialog.java
+index f1720c1..ecd9d29 100644
+--- a/src/com/android/settings/wifi/WifiDialog.java
++++ b/src/com/android/settings/wifi/WifiDialog.java
+@@ -18,18 +18,23 @@ package com.android.settings.wifi;
+ 
+ import com.android.settings.R;
+ 
++import java.util.List;
++
+ import android.app.AlertDialog;
+ import android.content.Context;
+ import android.content.DialogInterface;
+ import android.os.Bundle;
+ import android.view.View;
+ import android.widget.Button;
++import android.net.wifi.WifiChannel;
+ 
+ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
+     static final int BUTTON_SUBMIT = DialogInterface.BUTTON_POSITIVE;
+     static final int BUTTON_FORGET = DialogInterface.BUTTON_NEUTRAL;
+ 
+     private final boolean mEdit;
++    private final boolean mIbssSupported;
++    private List<WifiChannel> mSupportedChannels;
+     private final DialogInterface.OnClickListener mListener;
+     private final AccessPoint mAccessPoint;
+ 
+@@ -37,9 +42,11 @@ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
+     private WifiConfigController mController;
+ 
+     public WifiDialog(Context context, DialogInterface.OnClickListener listener,
+-            AccessPoint accessPoint, boolean edit) {
++            AccessPoint accessPoint, boolean edit, boolean ibssSupported, List<WifiChannel> chan) {
+         super(context);
+         mEdit = edit;
++        mIbssSupported = ibssSupported;
++        mSupportedChannels = chan;
+         mListener = listener;
+         mAccessPoint = accessPoint;
+     }
+@@ -54,7 +61,7 @@ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
+         mView = getLayoutInflater().inflate(R.layout.wifi_dialog, null);
+         setView(mView);
+         setInverseBackgroundForced(true);
+-        mController = new WifiConfigController(this, mView, mAccessPoint, mEdit);
++        mController = new WifiConfigController(this, mView, mAccessPoint, mEdit, mIbssSupported, mSupportedChannels);
+         super.onCreate(savedInstanceState);
+         /* During creation, the submit button can be unavailable to determine
+          * visibility. Right after creation, update button visibility */
+diff --git a/src/com/android/settings/wifi/WifiSettings.java b/src/com/android/settings/wifi/WifiSettings.java
+index 1caf58b..1229bc4 100644
+--- a/src/com/android/settings/wifi/WifiSettings.java
++++ b/src/com/android/settings/wifi/WifiSettings.java
+@@ -45,6 +45,7 @@ import android.net.wifi.WifiConfiguration;
+ import android.net.wifi.WifiInfo;
+ import android.net.wifi.WifiManager;
+ import android.net.wifi.WpsInfo;
++import android.net.wifi.WifiChannel;
+ import android.os.Bundle;
+ import android.os.Handler;
+ import android.os.Message;
+@@ -127,6 +128,8 @@ public class WifiSettings extends RestrictedSettingsFragment
+     private WifiManager.ActionListener mSaveListener;
+     private WifiManager.ActionListener mForgetListener;
+     private boolean mP2pSupported;
++    private boolean mIbssSupported;
++    List<WifiChannel> mSupportedChannels;
+ 
+     private WifiEnabler mWifiEnabler;
+     // An access point being editted is stored here.
+@@ -609,7 +612,8 @@ public class WifiSettings extends RestrictedSettingsFragment
+             mSelectedAccessPoint = (AccessPoint) preference;
+             /** Bypass dialog for unsecured, unsaved networks */
+             if (mSelectedAccessPoint.security == AccessPoint.SECURITY_NONE &&
+-                    mSelectedAccessPoint.networkId == INVALID_NETWORK_ID) {
++                    mSelectedAccessPoint.networkId == INVALID_NETWORK_ID &&
++                    !mSelectedAccessPoint.isIBSS) {
+                 mSelectedAccessPoint.generateOpenNetworkConfig();
+                 mWifiManager.connect(mSelectedAccessPoint.getConfig(), mConnectListener);
+             } else {
+@@ -650,7 +654,7 @@ public class WifiSettings extends RestrictedSettingsFragment
+                 }
+                 // If it's still null, fine, it's for Add Network
+                 mSelectedAccessPoint = ap;
+-                mDialog = new WifiDialog(getActivity(), this, ap, mDlgEdit);
++                mDialog = new WifiDialog(getActivity(), this, ap, mDlgEdit, mIbssSupported, mSupportedChannels);
+                 return mDialog;
+             case WPS_PBC_DIALOG_ID:
+                 return new WpsDialog(getActivity(), WpsInfo.PBC);
+@@ -785,9 +789,13 @@ public class WifiSettings extends RestrictedSettingsFragment
+         final List<ScanResult> results = mWifiManager.getScanResults();
+         if (results != null) {
+             for (ScanResult result : results) {
+-                // Ignore hidden and ad-hoc networks.
+-                if (result.SSID == null || result.SSID.length() == 0 ||
+-                        result.capabilities.contains("[IBSS]")) {
++                // Ignore hidden networks.
++                if (result.SSID == null || result.SSID.length() == 0) {
++                    continue;
++                }
++
++                // Ignore IBSS if chipset does not support them
++                if (!mIbssSupported && result.capabilities.contains("[IBSS]")) {
+                     continue;
+                 }
+ 
+@@ -910,6 +918,10 @@ public class WifiSettings extends RestrictedSettingsFragment
+ 
+         switch (state) {
+             case WifiManager.WIFI_STATE_ENABLED:
++                // this function only returns valid results in enabled state
++                mIbssSupported = mWifiManager.isIbssSupported();
++                mSupportedChannels = mWifiManager.getSupportedChannels();
++
+                 mScanner.resume();
+                 return; // not break, to avoid the call to pause() below
+ 
+-- 
+1.7.9.5
+

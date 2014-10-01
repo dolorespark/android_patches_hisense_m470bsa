@@ -1,0 +1,127 @@
+From: Schischu <schischu65@gmail.com>
+Date: Sat, 3 May 2014 14:43:52 +0200
+Subject: [PATCH] bluedroid: Add wiimote pairing support
+
+original CM11 patch modified to conform to AOSP code
+
+diff --git a/btif/include/btif_storage.h b/btif/include/btif_storage.h
+index d056209..0054715 100644
+--- a/btif/include/btif_storage.h
++++ b/btif/include/btif_storage.h
+@@ -313,6 +313,18 @@ bt_status_t btif_storage_add_device_to_autopair_blacklist(bt_bdaddr_t *remote_bd
+ *******************************************************************************/
+ BOOLEAN btif_storage_is_fixed_pin_zeros_keyboard(bt_bdaddr_t *remote_bd_addr);
+ 
++/*******************************************************************************
++**
++** Function         btif_storage_is_wiimote
++**
++** Description      BTIF storage API - checks if this device is a wiimote
++**
++** Returns          TRUE   if the device is found in wiimote device list
++**                  FALSE otherwise
++**
++*******************************************************************************/
++BOOLEAN btif_storage_is_wiimote(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *remote_bd_name);
++
+ #if (BLE_INCLUDED == TRUE)
+ bt_status_t btif_storage_add_ble_bonding_key( bt_bdaddr_t *remote_bd_addr,
+                                               char *key,
+diff --git a/btif/src/btif_dm.c b/btif/src/btif_dm.c
+index 01d3a4e..7016cfe 100644
+--- a/btif/src/btif_dm.c
++++ b/btif/src/btif_dm.c
+@@ -49,6 +49,7 @@
+ ******************************************************************************/
+ 
+ #define COD_UNCLASSIFIED ((0x1F) << 8)
++#define COD_HID_JOYSTICK                    0x0504
+ #define COD_HID_KEYBOARD                    0x0540
+ #define COD_HID_POINTING                    0x0580
+ #define COD_HID_COMBO                       0x05C0
+@@ -707,6 +708,33 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ *p_pin_req)
+                 return;
+             }
+         }
++        else if (check_cod(&bd_addr, COD_HID_JOYSTICK))
++        {
++            if(( btif_storage_is_wiimote (&bd_addr, &bd_name) == TRUE) &&
++                (pairing_cb.autopair_attempts == 0))
++            {
++                bt_bdaddr_t ad_addr;
++                bt_status_t status;
++                bt_property_t prop;
++                prop.type = BT_PROPERTY_BDADDR;
++                prop.val = (void*) &ad_addr;
++
++                status = btif_storage_get_adapter_property(&prop);
++
++                BTIF_TRACE_DEBUG1("%s() Attempting auto pair", __FUNCTION__);
++
++                pin_code.pin[0] = ad_addr.address[5];
++                pin_code.pin[1] = ad_addr.address[4];
++                pin_code.pin[2] = ad_addr.address[3];
++                pin_code.pin[3] = ad_addr.address[2];
++                pin_code.pin[4] = ad_addr.address[1];
++                pin_code.pin[5] = ad_addr.address[0];
++
++                pairing_cb.autopair_attempts++;
++                BTA_DmPinReply( (UINT8*)bd_addr.address, TRUE, 6, pin_code.pin);
++                return;
++            }
++        }
+     }
+     HAL_CBACK(bt_hal_cbacks, pin_request_cb,
+                      &bd_addr, &bd_name, cod);
+diff --git a/btif/src/btif_storage.c b/btif/src/btif_storage.c
+index 644c974..b09bfbf 100644
+--- a/btif/src/btif_storage.c
++++ b/btif/src/btif_storage.c
+@@ -1737,3 +1737,47 @@ BOOLEAN btif_storage_is_fixed_pin_zeros_keyboard(bt_bdaddr_t *remote_bd_addr)
+     return FALSE;
+ 
+ }
++
++static uint16_t wii_ids[][2] = {
++    { 0x057e, 0x0306 },		/* 1st gen */
++    { 0x054c, 0x0306 },		/* LEGO wiimote */
++    { 0x057e, 0x0330 },		/* 2nd gen */
++};
++
++static const char *wii_names[4] = {
++    "Nintendo RVL-CNT-01",		/* 1st gen */
++    "Nintendo RVL-CNT-01-TR",	/* 2nd gen */
++    "Nintendo RVL-CNT-01-UC",	/* Wii U Pro Controller */
++    "Nintendo RVL-WBC-01",		/* Balance Board */
++};
++
++/*******************************************************************************
++**
++** Function         btif_storage_is_wiimote
++**
++** Description      BTIF storage API - checks if this device is a wiimote
++**
++** Returns          TRUE   if the device is found in wiimote device list
++**                  FALSE otherwise
++**
++*******************************************************************************/
++BOOLEAN btif_storage_is_wiimote(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *remote_bd_name)
++{
++    uint8_t wii_names_size = sizeof(wii_names) / sizeof(wii_names[0]);
++    uint8_t i = 0;
++
++    //Check vendor and productid
++    //TODO
++
++    //Check device name
++    for (i = 0; i < wii_names_size; i++)
++    {
++        if (!strcmp((char*)remote_bd_name->name, wii_names[i]))
++        {
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++
++}

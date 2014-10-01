@@ -1,0 +1,16 @@
+diff --git a/.repo/local_manifests/local_manifest.xml b/.repo/local_manifests/local_manifest.xml
+index 9bd4225..a1bb1f6 100644
+--- a/.repo/local_manifests/local_manifest.xml
++++ b/.repo/local_manifests/local_manifest.xml
+@@ -12,11 +12,6 @@
+            revision="refs/heads/cm-11.0"
+            remote="cm" />
+ 
+-  <project path="external/fuse"
+-           name="android_external_fuse"
+-           revision="refs/heads/cm-11.0"
+-           remote="cm" />
+-
+   <project path="external/ntfs-3g"
+            name="android_external_ntfs-3g"
+            revision="refs/heads/cm-11.0"
