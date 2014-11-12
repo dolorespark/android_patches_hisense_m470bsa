@@ -1,0 +1,54 @@
+From ad104f6a40a2e090764d9902fdf0b8c20a1f7c25 Mon Sep 17 00:00:00 2001
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon, 10 Nov 2014 15:02:04 -0500
+Subject: [PATCH] ADB: accept Android5 cmdline args (used by Recovery)
+
+---
+ adb/adb.c |   24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/adb/adb.c b/adb/adb.c
+index 99bea0f..762b9c1 100644
+--- a/adb/adb.c
++++ b/adb/adb.c
+@@ -39,6 +39,7 @@
+ #include <sys/capability.h>
+ #include <linux/prctl.h>
+ #include <sys/mount.h>
++#include <getopt.h>
+ #else
+ #include "usb_vendors.h"
+ #endif
+@@ -1637,6 +1638,29 @@ int main(int argc, char **argv)
+     if((argc > 1) && (!strcmp(argv[1],"recovery"))) {
+         adb_device_banner = "recovery";
+         recovery_mode = 1;
++    } else {
++        /* accept Android v5-style cmdline arguments (used by Recovery) */
++        while(1) {
++            int c;
++            int option_index = 0;
++            static struct option opts[] = {
++                {"root_seclabel", required_argument, 0, 's' },
++                {"device_banner", required_argument, 0, 'b' }
++            };
++            c = getopt_long(argc, argv, "", opts, &option_index);
++            if (c == -1)
++                break;
++            switch (c) {
++            case 's':
++                break;
++            case 'b':
++                adb_device_banner = optarg;
++                recovery_mode = !strcmp(adb_device_banner, "recovery");
++                break;
++            default:
++                break;
++            }
++        }
+     }
+ 
+     start_device_log();
+-- 
+1.7.9.5
+

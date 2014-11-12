@@ -1,0 +1,143 @@
+From 29dbc3f56c2021cb6a2743294343c810441e3cdb Mon Sep 17 00:00:00 2001
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon, 10 Nov 2014 14:19:24 -0500
+Subject: [PATCH] add hooks for Performance.apk settings
+
+---
+ res/drawable-hdpi/ic_settings_performance.png  |  Bin 0 -> 773 bytes
+ res/drawable-mdpi/ic_settings_performance.png  |  Bin 0 -> 653 bytes
+ res/drawable-xhdpi/ic_settings_performance.png |  Bin 0 -> 956 bytes
+ res/values/strings.xml                         |    4 ++++
+ res/xml/settings_headers.xml                   |    8 ++++++++
+ src/com/android/settings/Settings.java         |    7 +++++++
+ 6 files changed, 19 insertions(+)
+ create mode 100644 res/drawable-hdpi/ic_settings_performance.png
+ create mode 100644 res/drawable-mdpi/ic_settings_performance.png
+ create mode 100644 res/drawable-xhdpi/ic_settings_performance.png
+
+diff --git a/res/drawable-hdpi/ic_settings_performance.png b/res/drawable-hdpi/ic_settings_performance.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..47b4ba23f7a547b327d6a0dd592b7e188ebbc28e
+GIT binary patch
+literal 773
+zcmeAS@N?(olHy`uVBq!ia0vp^1|ZDA0wn)(8}a}trX+877l!}s{b%+Ad7K3vk;M!Q
+z+(IDCc<FB4ACO>Kfnz$52J2-w_pT?Lfr0U*r;B4q#NoHoPX`_f5NX@bofvVVP4GC|
+z7KW@1jXALwn8FenZ#8jm-_Dr5fFbul;X$XE1g7Jzaw>}7C$hM=KfM3s+}YZ{&tvw<
+zJXo@ST9&bAdhu_K7G5TSYkj;{vbuiJS~njh@HuF=aOdrOGB@2WU}0i+nPLz}a@-6d
+z;SCSkmS%RxX*1U*9GhYqea&a)(ppom;svvRzGO^ZaJ)ey`}N&7PM0q89y-L`FL1SY
+z@-G2VS&efxwk$f|f4NzmJO95mL}r12+a4peq8ufjh{AKrE^KGKCn3nlJT2z)%-FkS
+zo_Pz-G%{$f+v6Ov&$RYIS5n8P8nMYbYyS8xWjCF>+F+B#g_Db`{&D4U{rw%(yKbf5
+zG{HqRjyE6r<Tt8rcq)DJR&U+O#7%!%EWe+bsj#Bpdlj?I#srUkMecc*_E{yjX;^1m
+zmMpVUNIS=zEpljrwH)W69U=#GmP}=smg=>s+w9~Eh5bxg@rR91+HDcsW|5jSajsdJ
+zWn{}#v%H|c{9-pVAM;J@cJ<A8{M13cKei@zi|4T`lTW>#6_vSo@>AX=TBoO^Xy-av
+zuhcT*-E?u8XKYGR;K5&Y0&jpaUk|Qae)ixiCFWee(u<CzZ%QY6-hHjq-u$j~qBD@O
+zygmM(@Qkxx)^|sFcrCF?`pfYCrrgJ?KVIAcrU20r*N775qSVBa%=|oskj&gv219*A
+zV|_!ze;3!40~M%(6r?1Uq*^6|RHZT)85kPs8W`#tT7(!{TA7$z8Jg-ESXdbtbU*9(
+zilQMmKP5A*61Rq5yA3>n8e~8=1m~xflqVLYGB~E>C#5R5WfrBD=NDxcD>w(67H)lP
+Q22{u3>FVdQ&MBb@03|y(X#fBK
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable-mdpi/ic_settings_performance.png b/res/drawable-mdpi/ic_settings_performance.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..792810427f92d8521d94cdb350b6c2db23830bb9
+GIT binary patch
+literal 653
+zcmeAS@N?(olHy`uVBq!ia0vp^3LwnE0wix1Z>k4UOiAAEE)4(M`_JqL@;D1TB8wRq
+zxP?HN@zUM8KOn)f0>^Y9tpLXDzvj$kU|=ltba4#vIR5miVcr!73DyVsYGF!>LSY@;
+z46?kpnyP;YTnM}za5<p3eak-1MGGA{#T_zSCrynolk3`OW+r!hwiavs<D_Tx|7U-n
+zS66&r^qHQ?Phr<BQ7fvSU!B*y>ssN_o#(9XM_QF;bw==?JKXo=N^(=!({Aw}ua>UW
+zP)z+%$=j6j@D7vq`86$8ye1i+=CBJV985d#;Y8wOmF&)_R)xwZyIW0|Je%a>cCuX;
+z+gI5%b$M7*Na^~>>c=Zqd}-tkpL^rt)a!CyX4iHW$Mc@EIp%+UxygeB_Gz~LcdtC?
+z&s~1_m{{oKC4W{-<o3N1Rn^{a*IjyBVC%hK4d3lLZ`BF4S<d)0=LyUHDrRrX8K3ur
+z9G014yFaml*=!;+>-p0+HJ&{PDEQg`{J89$4U6s{l{r&cH=E6pJ@x$Yn+6k`H$8ux
+z^QGGBcfyOGf8R9kd;b5qoy4`f-y9nc{;|8k%+yynarrK8hwE~?HTwVc{x-gmntbAc
+zzTw2%`wEveF9F7aXo+h?iE~kEVo7Fxo<c}wZYqPJzM-+cq2a%a>&k%&R6z<-5=&C8
+zl0m9c8H@}J4Rs9+bqy^-3@xop%&iPfbqy@63=F!Tb$mt9kei>9nO2Eg!>`>2o<I#U
+yARB`7(@M${i&7aJQ}UBi72Gn5Qp@v;vWpd*gG~#!J~jiYWAJqKb6Mw<&;$VE?F}IS
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable-xhdpi/ic_settings_performance.png b/res/drawable-xhdpi/ic_settings_performance.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..67544690f6d28ac279c366fee36e6dc36dc6716c
+GIT binary patch
+literal 956
+zcmeAS@N?(olHy`uVBq!ia0vp^4j|0I0wfs{c7_5;rX+877l!}s{b%+Ad7K3vk;M!Q
+z+(IDCc<FB4ACO>Kfnz$5b^zm7pMN9(wJq>;aSX}0_jaaX-(?4pw*7@do477c)AkbJ
+z<#m6+ce#1#+LwZ<U2DHF%}MCgc+Mx&sGAXxwXNJmq`K`;*@s(x&r)Z!F#Qi&a%AS7
+zpU=<E{#n2GKm+4{>ySMGY`uXh8V3@$8owwOG$=LsuCa~TM&;N?qX6F@ZQ2hS*Y6Np
+zC@dUsV2=Nu)!QEQeNU<5^1Sj@-(zFW%_Psr2Y;evx*HA^9W)g?+QP|o+EhG3zIBGF
+zLDIhH0H!mNo-^JjT$u5p_~DF?2QF*9<#RnI`r6NCd8XX?LjMH?E9UvntB7UVeBk8u
+z>Urn+`m==sEYkiYsI9!mCevklUeoHnh>!HgQ-%7G=KSf_%w6e@ulL_6esuez-fiz}
+zp#q0<lQJFH%tUNW*K0@tm09+`S~RzjH^144;lq;8DM$3<_v8usF)hFUEvNBy=k{E6
+zO|G6>_53fI*#irNyGr8>?}hdsGMuJ!-uTFs#Wq&?r;gS<4h`*LRo?e`mQ9=dgqJl=
+z=XmF@-fX~>cfxZ+d-HEjkJ5XKA|`#9D1M+TdYZ=lFGft$ST$M2JUo7$WS?|zR`{Kd
+zt(qGYr~gpgFE8+F&pJ(&Cn+gUOkMv@XIXIV=Mt&;UtaIgix&&fIFNPli;%s-)k@8#
+zKMoD&ydQpN4w^gt5eHPLA>{c|i&Oj_rT=E|u>5RPm^=N@d-f$(`bP`v6k?tqHonjr
+z@ZA5Byn(9c`g60bZgKu%E}Cl}SnsgvbK_q|Pu>$Haqpy~IPExMgFn2iDX2g2n%yL6
+zuK3TkyhmjcznDea{vEg=4`euUeCPdGb+qwsV+4!LhQ!uYe94VTN7>%His&;h&0p|X
+z`rMSpTjopdOrBWiul1V$$p6!6cfRrdl3^(m`4_SE)!c7?^lph|9Qwt~{LiwE`NH?~
+zb0?n{eE}v~(Gu5)66d1S#FEVXJcW?V+*AfbeM4h?L&JX;*OdbmsDc!vB$lLFC4*F@
+zG8h>c8tNKY=o(mt7#doc7+M*a>Kd3^85r!}|3?BvLvDUbW?CgwgSoDeQHY_5m9deP
+z5l}No!+&ofJD>&`kPX54X(i=}MX3yqDfvmM3T~N2spa`a*~JRZ!KQ^<ADaQyF?hQA
+KxvX<aXaWEnACs*B
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 22eb3e8..4839023 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -4904,4 +4904,8 @@
+ 
+     <!-- Text to display in regulatory info screen (from device overlay). -->
+     <string name="regulatory_info_text"></string>
++
++    <!-- Header title for Performance settings -->
++    <string name="performance_settings">Performance</string>
++
+ </resources>
+diff --git a/res/xml/settings_headers.xml b/res/xml/settings_headers.xml
+index 8744328..d64f5b5 100644
+--- a/res/xml/settings_headers.xml
++++ b/res/xml/settings_headers.xml
+@@ -97,6 +97,14 @@
+         android:icon="@drawable/ic_settings_battery"
+         android:title="@string/power_usage_summary_title" />
+ 
++    <!-- Performance -->
++    <header
++        android:id="@+id/performance_settings"
++        android:title="@string/performance_settings"
++        android:icon="@drawable/ic_settings_performance" >
++        <intent android:action="com.android.performance.SETTINGS" />
++    </header>
++
+     <!-- Application Settings -->
+     <header
+         android:fragment="com.android.settings.applications.ManageApplications"
+diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
+index f6f49b8..184d83c 100644
+--- a/src/com/android/settings/Settings.java
++++ b/src/com/android/settings/Settings.java
+@@ -602,6 +602,13 @@ public class Settings extends PreferenceActivity
+                 if (um.hasUserRestriction(UserManager.DISALLOW_MODIFY_ACCOUNTS)) {
+                     target.remove(i);
+                 }
++            } else if (id == R.id.performance_settings) {
++                try {
++                    getPackageManager().getApplicationEnabledSetting("com.android.performance");
++                }
++                catch (IllegalArgumentException e) {
++                    target.remove(i);
++                }
+             }
+ 
+             if (i < target.size() && target.get(i) == header
+-- 
+1.7.9.5
+

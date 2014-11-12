@@ -1,0 +1,25 @@
+From dab9b5331d6c172e42a4bd14e05e712b9552823b Mon Sep 17 00:00:00 2001
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Mon, 10 Nov 2014 15:17:25 -0500
+Subject: [PATCH] increase min brightness when dimmed
+
+---
+ libtouch_gui/touch_gui.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libtouch_gui/touch_gui.h b/libtouch_gui/touch_gui.h
+index 14255e0..951edce 100644
+--- a/libtouch_gui/touch_gui.h
++++ b/libtouch_gui/touch_gui.h
+@@ -57,7 +57,7 @@ extern int key_gesture;
+ 
+ // brightness and blank screen settings
+ #define BRIGHTNESS_DEFAULT_VALUE    160
+-#define BRIGHTNESS_MIN_VALUE        10
++#define BRIGHTNESS_MIN_VALUE        20
+ extern bool is_blanked;
+ extern bool is_dimmed;
+ void apply_brightness_value(long int dim_value);
+-- 
+1.7.9.5
+
