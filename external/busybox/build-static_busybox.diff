@@ -1,0 +1,57 @@
+From: DoloresPark <dolorespark@e-vertise.com>
+Date: Fri, 20 Feb 2015 13:02:39 -0500
+Subject: [PATCH] build static_busybox executable for use with PhilZ Recovery
+
+This works around a bug in 'grep' that only appears when libbusybox
+is statically linked to PhilZ recovery executable
+
+diff --git a/Android.mk b/Android.mk
+index b693901..a84a193 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -196,14 +196,18 @@ ALL_MODULES.$(LOCAL_MODULE).INSTALLED := \
+ 
+ 
+ # Static Busybox
++#
++# DoPa (2014/12/07) - change static executable to a minimal config for use
++# with PhilZ Recovery - this works around a bug in 'grep' that only appears
++# when the static libbusybox is linked into PhilZ
+ 
+ LOCAL_PATH := $(BB_PATH)
+ include $(CLEAR_VARS)
+ 
+-BUSYBOX_CONFIG:=full
++BUSYBOX_CONFIG:=minimal
+ BUSYBOX_SUFFIX:=static
+ LOCAL_SRC_FILES := $(BUSYBOX_SRC_FILES)
+-LOCAL_C_INCLUDES := $(bb_gen)/full/include $(BUSYBOX_C_INCLUDES)
++LOCAL_C_INCLUDES := $(bb_gen)/minimal/include $(BUSYBOX_C_INCLUDES)
+ LOCAL_CFLAGS := $(BUSYBOX_CFLAGS)
+ LOCAL_CFLAGS += \
+   -Dgetusershell=busybox_getusershell \
+@@ -218,8 +222,8 @@ LOCAL_MODULE := static_busybox
+ LOCAL_MODULE_STEM := busybox
+ LOCAL_MODULE_TAGS := optional
+ LOCAL_STATIC_LIBRARIES := libclearsilverregex libc libcutils libm libuclibcrpc libselinux
+-LOCAL_MODULE_CLASS := UTILITY_EXECUTABLES
+-LOCAL_MODULE_PATH := $(PRODUCT_OUT)/utilities
+-LOCAL_UNSTRIPPED_PATH := $(PRODUCT_OUT)/symbols/utilities
+-LOCAL_ADDITIONAL_DEPENDENCIES := $(busybox_prepare_full)
++LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
++LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
++LOCAL_ADDITIONAL_DEPENDENCIES := $(busybox_prepare_minimal)
+ include $(BUILD_EXECUTABLE)
++
+diff --git a/include/platform.h b/include/platform.h
+index b5aa683..b2c2ce1 100644
+--- a/include/platform.h
++++ b/include/platform.h
+@@ -456,6 +456,7 @@ typedef unsigned smalluint;
+ # undef HAVE_DPRINTF
+ # undef HAVE_STRCHRNUL
+ # undef HAVE_STRVERSCMP
++# undef HAVE_UNLOCKED_STDIO
+ # undef HAVE_UNLOCKED_LINE_OPS
+ # undef HAVE_NET_ETHERNET_H
+ # ifndef BIONIC_L
